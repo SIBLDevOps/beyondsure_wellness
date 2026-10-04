@@ -1,0 +1,49 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Brand — wellness green with a deep teal-navy for headers/footers and a warm gold accent for CTAs */
+    --color-brand-50: #ecfdf5;
+    --color-brand-100: #d1fae5;
+    --color-brand-200: #a7f3d0;
+    --color-brand-300: #6ee7b7;
+    --color-brand-400: #34d399;
+    --color-brand-500: #10b981;
+    --color-brand-600: #059669;
+    --color-brand-700: #047857;
+    --color-brand-800: #065f46;
+    --color-brand-900: #064e3b;
+
+    --color-ink-50: #f0f9f7;
+    --color-ink-100: #dceee9;
+    --color-ink-400: #4b6b64;
+    --color-ink-600: #234c44;
+    --color-ink-700: #163a33;
+    --color-ink-800: #0f2b26;
+    --color-ink-900: #0a1f1b;
+
+    --color-gold-400: #fbbf24;
+    --color-gold-500: #f59e0b;
+    --color-gold-600: #d97706;
+
+    /* Admin accent — deep indigo/navy, SocialV-style dashboard sidebar */
+    --color-nav-600: #4338ca;
+    --color-nav-700: #3730a3;
+    --color-nav-800: #1e1b4b;
+    --color-nav-900: #14123a;
+}
+
+@layer utilities {
+    .bg-hero-gradient {
+        background: radial-gradient(circle at 20% 20%, var(--color-brand-700), var(--color-ink-900) 65%);
+    }
+
+    .bg-sidebar-gradient {
+        background: linear-gradient(180deg, var(--color-nav-800) 0%, var(--color-nav-900) 100%);
+    }
+}

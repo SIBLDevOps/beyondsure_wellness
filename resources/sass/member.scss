@@ -1,0 +1,277 @@
+// BeyondSure Member Portal — customer-facing Bootstrap theme (emerald brand, not admin navy)
+
+$primary:       #059669; // emerald — matches the public site brand
+$secondary:     #64748b;
+$success:       #059669;
+$info:          #0ea5e9;
+$warning:       #f59e0b;
+$danger:        #e11d48;
+
+$body-bg:       #f4f8f6;
+$body-color:    #1e293b;
+$border-color:  #e2e8f0;
+
+$border-radius:        .65rem;
+$border-radius-sm:      .5rem;
+$border-radius-lg:      .85rem;
+$border-radius-xl:      1rem;
+$border-radius-pill:    50rem;
+
+$font-family-sans-serif: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$headings-font-weight: 700;
+
+$card-border-color: $border-color;
+$card-box-shadow: 0 1px 3px rgba(15, 23, 42, .05);
+$card-border-radius: $border-radius-lg;
+
+$table-hover-bg: #f8faf9;
+
+$enable-shadows: false;
+$enable-negative-margins: true;
+
+@import "bootstrap/scss/bootstrap";
+@import "bootstrap-icons/font/bootstrap-icons.css";
+
+// ---- Customer Portal Sidebar & Header ----
+
+.member-sidebar {
+    background: linear-gradient(180deg, #064e3b 0%, #022c22 100%);
+    height: 100vh;
+    max-height: 100vh;
+    width: 264px;
+    min-width: 264px;
+    max-width: 264px;
+    color: #ecfdf5;
+    overflow-x: hidden;
+}
+
+.member-sidebar .nav {
+    flex-wrap: nowrap !important;
+}
+
+.member-sidebar nav::-webkit-scrollbar {
+    width: 4px;
+}
+
+.member-sidebar nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.member-sidebar nav::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, .16);
+    border-radius: 4px;
+}
+
+.member-sidebar nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, .3);
+}
+
+.member-sidebar nav {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, .16) transparent;
+}
+
+.member-sidebar .brand {
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.15rem;
+    text-decoration: none;
+}
+
+.member-sidebar .brand .accent {
+    color: #34d399;
+}
+
+.member-sidebar .nav-section-label {
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: rgba(167, 243, 208, .55);
+    font-weight: 600;
+    padding: .65rem .75rem .25rem;
+}
+
+.member-sidebar .nav-link {
+    color: #d1fae5;
+    border-radius: .5rem;
+    padding: .55rem .75rem;
+    font-size: .875rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    transition: background-color .15s ease, color .15s ease;
+}
+
+.member-sidebar .nav-link i {
+    font-size: 1.05rem;
+    width: 1.15rem;
+    text-align: center;
+    flex-shrink: 0;
+    color: #6ee7b7;
+}
+
+.member-sidebar .nav-link:hover {
+    background: rgba(255, 255, 255, .08);
+    color: #fff;
+}
+
+.member-sidebar .nav-link.active {
+    background: rgba(16, 185, 129, .22);
+    color: #fff;
+    box-shadow: inset 3px 0 0 #34d399;
+}
+
+.member-sidebar .nav-link.active i {
+    color: #34d399;
+}
+
+.member-profile-card {
+    background: rgba(255, 255, 255, .07);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: .75rem;
+    padding: .75rem;
+}
+
+.member-header {
+    background: #ffffff;
+    border-bottom: 1px solid $border-color;
+}
+
+// ---- Reusable Components ----
+
+.avatar-circle {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 600;
+    font-size: .8rem;
+    flex-shrink: 0;
+}
+
+.avatar-circle-sm {
+    width: 32px;
+    height: 32px;
+    font-size: .7rem;
+}
+
+.stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: .65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+
+.split-bar {
+    height: .65rem;
+    border-radius: 50rem;
+    overflow: hidden;
+    display: flex;
+    background: #f1f5f9;
+}
+
+.plan-card-popular {
+    border: 2px solid $primary !important;
+}
+
+.hover-lift {
+    transition: box-shadow .15s ease, transform .15s ease, border-color .15s ease;
+}
+
+.hover-lift:hover {
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .08) !important;
+    transform: translateY(-2px);
+    border-color: rgba($primary, .3) !important;
+}
+
+.nav-underline-tabs .nav-link {
+    color: #64748b;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: .6rem .25rem;
+    margin-right: 1.25rem;
+    font-size: .875rem;
+    font-weight: 500;
+}
+
+.nav-underline-tabs .nav-link.active {
+    color: $primary;
+    border-bottom-color: $primary;
+    background: none;
+}
+
+// ---- Mobile Responsive Overrides ----
+
+@media (max-width: 575.98px) {
+    // Smaller stat-icon on phones
+    .stat-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+
+    // Tighter KPI card padding
+    .card-body .fs-4 {
+        font-size: 1.15rem !important;
+    }
+
+    .card-body .fs-5 {
+        font-size: 1rem !important;
+    }
+
+    // Header title sizing
+    .member-header h1 {
+        font-size: .9rem !important;
+        max-width: 140px !important;
+    }
+
+    // Let search inputs fill available space instead of fixed widths
+    .card-header .input-group[style*="width"] {
+        width: 100% !important;
+    }
+
+    // Network nav tabs: smaller font & spacing
+    .nav-underline-tabs .nav-link {
+        font-size: .8rem;
+        padding: .5rem .15rem;
+        margin-right: .65rem;
+    }
+
+    // Compact card headers
+    .card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: .75rem;
+    }
+
+    .card-header .d-flex.align-items-center.gap-2 {
+        width: 100%;
+    }
+
+    // Withdrawal form inline -> stacked
+    .card-header form.d-flex {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .card-header form.d-flex .input-group {
+        width: 100% !important;
+    }
+}
+
+// Medium screens: restore header title width
+@media (min-width: 768px) {
+    .member-header h1 {
+        max-width: 320px !important;
+        font-size: 1.1rem !important;
+    }
+}
+
