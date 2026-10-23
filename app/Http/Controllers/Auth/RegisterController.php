@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Concerns\RedirectsAfterMemberAuth;
 use App\Http\Controllers\Controller;
 use App\Models\Member;
+use App\Models\Setting;
 use App\Services\MemberService;
 use App\Services\OtpService;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +27,18 @@ class RegisterController extends Controller
         return view('auth.register', [
             'phone' => $request->query('phone'),
             'sponsor' => $request->query('sponsor'),
+            'side' => in_array($request->query('side'), ['left', 'right'], true) ? $request->query('side') : null,
+            'sponsorRequired' => $this->sponsorRequired(),
         ]);
+    }
+
+    /**
+     * Admin setting (Settings -> registration). The very first member has nobody to sponsor them,
+     * so registration stays open while the network is empty — otherwise nobody could ever join.
+     */
+    private function sponsorRequired(): bool
+    {
+        return (bool) Setting::get('require_sponsor', 0) && Member::exists();
     }
 
     public function store(Request $request): RedirectResponse
@@ -42,8 +54,10 @@ class RegisterController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'regex:/^[6-9]\d{9}$/', 'unique:members,phone'],
             'email' => ['nullable', 'email', 'max:255', 'unique:members,email'],
-            'sponsor_code' => ['nullable', 'string', 'exists:members,member_code'],
+            'sponsor_code' => [$this->sponsorRequired() ? 'required' : 'nullable', 'string', 'exists:members,member_code'],
+            'side' => ['nullable', 'in:left,right'],
         ], [
+            'sponsor_code.required' => 'A sponsor code is required to register. Ask the person who invited you for their link.',
             'name.required' => 'Please enter your full name.',
             'phone.required' => 'Mobile number is required.',
             'phone.regex' => 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.',
@@ -122,7 +136,7 @@ class RegisterController extends Controller
                 ?? Member::orderBy('id')->first();
         }
 
-        $placement = $this->members->placeUnderSponsor($sponsor);
+        $placement = $this->members->placeUnderSponsor($sponsor, $sponsor ? ($pending['side'] ?? null) : null);
 
         $member = Member::create([
             'member_code' => $this->members->generateMemberCode(),

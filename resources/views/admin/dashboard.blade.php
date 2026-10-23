@@ -3,6 +3,10 @@
 @section('title', 'Admin Dashboard')
 
 @section('content')
+    @php
+        // Links to sections this person can't open become inert instead of leading to a 403.
+        $go = fn (string $r) => auth()->user()->canAccessRoute($r) ? route($r) : '#';
+    @endphp
     <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
         <div>
             <h2 class="h5 mb-1 fw-bold text-dark">Platform Operations &amp; Command Center</h2>
@@ -11,10 +15,10 @@
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ route('admin.cycles.index') }}" class="btn btn-sm btn-primary">
+            <a href="{{ $go('admin.cycles.index') }}" class="btn btn-sm btn-primary">
                 <i class="bi bi-play-circle me-1"></i>Run Cycle
             </a>
-            <a href="{{ route('admin.plans.index') }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ $go('admin.plans.index') }}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-layers me-1"></i>Plans
             </a>
         </div>
@@ -38,7 +42,7 @@
                 <i class="bi bi-arrow-right text-muted flex-shrink-0"></i>
 
                 {{-- Step 2 --}}
-                <a href="{{ route('admin.payments.index') }}" class="d-flex align-items-center gap-2 border rounded-3 px-3 py-2 flex-shrink-0 text-decoration-none {{ $pendingPayments > 0 ? 'bg-warning-subtle border-warning-subtle text-warning-emphasis' : 'bg-light-subtle text-dark' }}">
+                <a href="{{ $go('admin.payments.index') }}" class="d-flex align-items-center gap-2 border rounded-3 px-3 py-2 flex-shrink-0 text-decoration-none {{ $pendingPayments > 0 ? 'bg-warning-subtle border-warning-subtle text-warning-emphasis' : 'bg-light-subtle text-dark' }}">
                     <span class="badge rounded-circle {{ $pendingPayments > 0 ? 'bg-warning text-dark' : 'bg-secondary text-white' }}" style="width:20px;height:20px;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center;">2</span>
                     <span class="small fw-semibold">Verify Payment</span>
                     @if ($pendingPayments > 0)
@@ -48,7 +52,7 @@
                 <i class="bi bi-arrow-right text-muted flex-shrink-0"></i>
 
                 {{-- Step 3 --}}
-                <a href="{{ route('admin.cycles.index') }}" class="d-flex align-items-center gap-2 border rounded-3 px-3 py-2 flex-shrink-0 text-decoration-none {{ $unsettledOrders > 0 ? 'bg-primary-subtle border-primary-subtle text-primary' : 'bg-light-subtle text-dark' }}">
+                <a href="{{ $go('admin.cycles.index') }}" class="d-flex align-items-center gap-2 border rounded-3 px-3 py-2 flex-shrink-0 text-decoration-none {{ $unsettledOrders > 0 ? 'bg-primary-subtle border-primary-subtle text-primary' : 'bg-light-subtle text-dark' }}">
                     <span class="badge rounded-circle {{ $unsettledOrders > 0 ? 'bg-primary text-white' : 'bg-secondary text-white' }}" style="width:20px;height:20px;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center;">3</span>
                     <span class="small fw-semibold">Approve Cycle</span>
                     @if ($unsettledOrders > 0)
@@ -58,7 +62,7 @@
                 <i class="bi bi-arrow-right text-muted flex-shrink-0"></i>
 
                 {{-- Step 4 --}}
-                <a href="{{ route('admin.withdrawals.index') }}" class="d-flex align-items-center gap-2 border rounded-3 px-3 py-2 flex-shrink-0 text-decoration-none {{ $pendingWithdrawals > 0 ? 'bg-danger-subtle border-danger-subtle text-danger' : 'bg-light-subtle text-dark' }}">
+                <a href="{{ $go('admin.withdrawals.index') }}" class="d-flex align-items-center gap-2 border rounded-3 px-3 py-2 flex-shrink-0 text-decoration-none {{ $pendingWithdrawals > 0 ? 'bg-danger-subtle border-danger-subtle text-danger' : 'bg-light-subtle text-dark' }}">
                     <span class="badge rounded-circle {{ $pendingWithdrawals > 0 ? 'bg-danger text-white' : 'bg-secondary text-white' }}" style="width:20px;height:20px;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center;">4</span>
                     <span class="small fw-semibold">Review Withdrawal</span>
                     @if ($pendingWithdrawals > 0)
@@ -68,7 +72,7 @@
                 <i class="bi bi-arrow-right text-muted flex-shrink-0"></i>
 
                 {{-- Step 5 --}}
-                <a href="{{ route('admin.dispatch.index') }}" class="d-flex align-items-center gap-2 border rounded-3 px-3 py-2 flex-shrink-0 text-decoration-none {{ $withdrawalsToProcess > 0 ? 'bg-success-subtle border-success-subtle text-success' : 'bg-light-subtle text-dark' }}">
+                <a href="{{ $go('admin.dispatch.index') }}" class="d-flex align-items-center gap-2 border rounded-3 px-3 py-2 flex-shrink-0 text-decoration-none {{ $withdrawalsToProcess > 0 ? 'bg-success-subtle border-success-subtle text-success' : 'bg-light-subtle text-dark' }}">
                     <span class="badge rounded-circle {{ $withdrawalsToProcess > 0 ? 'bg-success text-white' : 'bg-secondary text-white' }}" style="width:20px;height:20px;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center;">5</span>
                     <span class="small fw-semibold">Dispatch Payout</span>
                     @if ($withdrawalsToProcess > 0)
@@ -97,7 +101,7 @@
                     </div>
                     <div class="text-secondary small">Payments to Verify</div>
                     <div class="fs-4 fw-bold {{ $pendingPayments > 0 ? 'text-warning-emphasis' : 'text-dark' }}">{{ $pendingPayments }}</div>
-                    <a href="{{ route('admin.payments.index') }}" class="small fw-medium link-primary text-decoration-none mt-1 d-inline-block">
+                    <a href="{{ $go('admin.payments.index') }}" class="small fw-medium link-primary text-decoration-none mt-1 d-inline-block">
                         Review submissions &rarr;
                     </a>
                 </div>
@@ -120,7 +124,7 @@
                     </div>
                     <div class="text-secondary small">Orders Awaiting Cycle</div>
                     <div class="fs-4 fw-bold {{ $unsettledOrders > 0 ? 'text-primary' : 'text-dark' }}">{{ $unsettledOrders }}</div>
-                    <a href="{{ route('admin.cycles.index') }}" class="small fw-medium link-primary text-decoration-none mt-1 d-inline-block">
+                    <a href="{{ $go('admin.cycles.index') }}" class="small fw-medium link-primary text-decoration-none mt-1 d-inline-block">
                         Open cycle manager &rarr;
                     </a>
                 </div>
@@ -143,7 +147,7 @@
                     </div>
                     <div class="text-secondary small">Pending Withdrawals</div>
                     <div class="fs-4 fw-bold {{ $pendingWithdrawals > 0 ? 'text-danger' : 'text-dark' }}">{{ $pendingWithdrawals }}</div>
-                    <a href="{{ route('admin.withdrawals.index') }}" class="small fw-medium link-primary text-decoration-none mt-1 d-inline-block">
+                    <a href="{{ $go('admin.withdrawals.index') }}" class="small fw-medium link-primary text-decoration-none mt-1 d-inline-block">
                         Approve requests &rarr;
                     </a>
                 </div>
@@ -166,7 +170,7 @@
                     </div>
                     <div class="text-secondary small">Ready for Payout Batch</div>
                     <div class="fs-4 fw-bold {{ $withdrawalsToProcess > 0 ? 'text-success' : 'text-dark' }}">{{ $withdrawalsToProcess }}</div>
-                    <a href="{{ route('admin.dispatch.index') }}" class="small fw-medium link-primary text-decoration-none mt-1 d-inline-block">
+                    <a href="{{ $go('admin.dispatch.index') }}" class="small fw-medium link-primary text-decoration-none mt-1 d-inline-block">
                         Generate payout batch &rarr;
                     </a>
                 </div>
@@ -225,7 +229,7 @@
                         <h2 class="h6 mb-0 fw-semibold"><i class="bi bi-bag-check me-2 text-primary"></i>Recent Plan Purchases</h2>
                         <div class="text-body-tertiary small">Latest orders placed by network partners</div>
                     </div>
-                    <a href="{{ route('admin.orders.index') }}" class="small link-primary text-decoration-none">View all &rarr;</a>
+                    <a href="{{ $go('admin.orders.index') }}" class="small link-primary text-decoration-none">View all &rarr;</a>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-hover align-middle mb-0">
@@ -276,7 +280,7 @@
                         <h2 class="h6 mb-0 fw-semibold"><i class="bi bi-credit-card-2-front me-2 text-warning"></i>Payments Awaiting Verification</h2>
                         <div class="text-body-tertiary small">Bank/UPI receipts requiring manual confirmation</div>
                     </div>
-                    <a href="{{ route('admin.payments.index') }}" class="small link-primary text-decoration-none">Review queue &rarr;</a>
+                    <a href="{{ $go('admin.payments.index') }}" class="small link-primary text-decoration-none">Review queue &rarr;</a>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-hover align-middle mb-0">
@@ -327,7 +331,7 @@
                         <h2 class="h6 mb-0 fw-semibold"><i class="bi bi-bank me-2 text-success"></i>Recent Withdrawal Activity</h2>
                         <div class="text-body-tertiary small">Latest member requests &amp; dispatched batches</div>
                     </div>
-                    <a href="{{ route('admin.withdrawals.index') }}" class="small link-primary text-decoration-none">Manage payouts &rarr;</a>
+                    <a href="{{ $go('admin.withdrawals.index') }}" class="small link-primary text-decoration-none">Manage payouts &rarr;</a>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-hover align-middle mb-0">
@@ -377,7 +381,7 @@
                     <div class="text-body-tertiary small">Quick shortcuts to platform configuration &amp; reporting</div>
                 </div>
                 <div class="card-body p-3 d-flex flex-column justify-content-between gap-2">
-                    <a href="{{ route('admin.plans.index') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
+                    <a href="{{ $go('admin.plans.index') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
                         <div class="d-flex align-items-center gap-3 min-w-0">
                             <div class="stat-icon bg-primary-subtle text-primary flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;">
                                 <i class="bi bi-layers"></i>
@@ -390,7 +394,7 @@
                         <i class="bi bi-chevron-right text-secondary small ms-2 flex-shrink-0"></i>
                     </a>
 
-                    <a href="{{ route('admin.reports.levels') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
+                    <a href="{{ $go('admin.reports.levels') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
                         <div class="d-flex align-items-center gap-3 min-w-0">
                             <div class="stat-icon bg-success-subtle text-success flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;">
                                 <i class="bi bi-bar-chart-steps"></i>
@@ -403,7 +407,7 @@
                         <i class="bi bi-chevron-right text-secondary small ms-2 flex-shrink-0"></i>
                     </a>
 
-                    <a href="{{ route('admin.settings.edit') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
+                    <a href="{{ $go('admin.settings.edit') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
                         <div class="d-flex align-items-center gap-3 min-w-0">
                             <div class="stat-icon bg-warning-subtle text-warning-emphasis flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;">
                                 <i class="bi bi-gear"></i>
@@ -416,7 +420,7 @@
                         <i class="bi bi-chevron-right text-secondary small ms-2 flex-shrink-0"></i>
                     </a>
 
-                    <a href="{{ route('admin.site-content.edit') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
+                    <a href="{{ $go('admin.site-content.edit') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
                         <div class="d-flex align-items-center gap-3 min-w-0">
                             <div class="stat-icon bg-info-subtle text-info-emphasis flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;">
                                 <i class="bi bi-file-earmark-text"></i>

@@ -66,13 +66,13 @@
             <ul class="genealogy-children">
                 {{-- Left Branch --}}
                 @if ($node['left'])
-                    @include('member.partials.tree-node', ['node' => $node['left'], 'position' => 'left'])
+                    @include('member.partials.tree-node', ['node' => $node['left'], 'position' => 'left', 'rootLeg' => ($node['level'] === 1 ? 'left' : ($rootLeg ?? 'left'))])
                 @else
                     <li class="genealogy-branch">
                         <div class="genealogy-node genealogy-node-vacant">
                             <span class="badge bg-info-subtle text-info-emphasis mb-1" style="font-size: .62rem; padding: .2rem .4rem;">LEFT SLOT</span>
                             <div class="text-body-tertiary small"><i class="bi bi-plus-circle-dotted d-block fs-5 mb-1 opacity-50"></i>Vacant Left</div>
-                            <a href="{{ route('register', ['sponsor' => auth('member')->user()?->member_code]) }}" target="_blank" class="btn btn-sm btn-outline-info rounded-pill py-0 px-2 mt-1" style="font-size: .62rem; text-decoration: none;" title="Invite new member with your sponsor code">
+                            <a href="{{ route('register', ['sponsor' => auth('member')->user()?->member_code, 'side' => ($node['level'] === 1 ? 'left' : ($rootLeg ?? 'left'))]) }}" target="_blank" class="btn btn-sm btn-outline-info rounded-pill py-0 px-2 mt-1" style="font-size: .62rem; text-decoration: none;" title="Invite a member into your LEFT leg">
                                 <i class="bi bi-person-plus me-1"></i>Invite
                             </a>
                         </div>
@@ -81,13 +81,13 @@
 
                 {{-- Right Branch --}}
                 @if ($node['right'])
-                    @include('member.partials.tree-node', ['node' => $node['right'], 'position' => 'right'])
+                    @include('member.partials.tree-node', ['node' => $node['right'], 'position' => 'right', 'rootLeg' => ($node['level'] === 1 ? 'right' : ($rootLeg ?? 'right'))])
                 @else
                     <li class="genealogy-branch">
                         <div class="genealogy-node genealogy-node-vacant">
                             <span class="badge bg-success-subtle text-success mb-1" style="font-size: .62rem; padding: .2rem .4rem;">RIGHT SLOT</span>
                             <div class="text-body-tertiary small"><i class="bi bi-plus-circle-dotted d-block fs-5 mb-1 opacity-50"></i>Vacant Right</div>
-                            <a href="{{ route('register', ['sponsor' => auth('member')->user()?->member_code]) }}" target="_blank" class="btn btn-sm btn-outline-success rounded-pill py-0 px-2 mt-1" style="font-size: .62rem; text-decoration: none;" title="Invite new member with your sponsor code">
+                            <a href="{{ route('register', ['sponsor' => auth('member')->user()?->member_code, 'side' => ($node['level'] === 1 ? 'right' : ($rootLeg ?? 'right'))]) }}" target="_blank" class="btn btn-sm btn-outline-success rounded-pill py-0 px-2 mt-1" style="font-size: .62rem; text-decoration: none;" title="Invite a member into your RIGHT leg">
                                 <i class="bi bi-person-plus me-1"></i>Invite
                             </a>
                         </div>

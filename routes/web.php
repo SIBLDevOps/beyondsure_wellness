@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\TeamController;
 use App\Http\Controllers\Admin\SiteContentController;
 use App\Http\Controllers\Admin\TestimonialController as AdminTestimonialController;
 use App\Http\Controllers\Admin\WithdrawalController as AdminWithdrawalController;
@@ -123,6 +124,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
+        Route::put('settings/ranks', [SettingsController::class, 'updateRanks'])->name('settings.ranks');
+
+        Route::resource('team', TeamController::class)->except('show')->parameters(['team' => 'user']);
 
         Route::get('site-content', [SiteContentController::class, 'edit'])->name('site-content.edit');
         Route::put('site-content', [SiteContentController::class, 'update'])->name('site-content.update');

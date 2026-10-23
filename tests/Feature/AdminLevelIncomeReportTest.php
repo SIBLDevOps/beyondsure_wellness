@@ -191,9 +191,11 @@ class AdminLevelIncomeReportTest extends TestCase
         $response = $this->actingAs($this->admin, 'web')->get(route('admin.settings.edit'));
 
         $response->assertStatus(200);
-        $response->assertSee('3. Level-wise matching income distribution (% per level)');
-        $response->assertSee('Level-wise income report');
-        $response->assertSee('Live Compensation Calculation & Solvency Check', false);
+        $response->assertSee('Level-wise matching');
+        $response->assertSee('Level-wise report');
+        $response->assertSee('Live payout check');
+        $response->assertSee('Circuit breaker');
+        $response->assertSee('Registration');
     }
 
     public function test_admin_can_configure_custom_level_wise_percentages_and_change_level_count(): void

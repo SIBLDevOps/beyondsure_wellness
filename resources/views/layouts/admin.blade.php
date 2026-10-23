@@ -36,8 +36,30 @@
                 'admin.site-content.edit' => ['Homepage', 'bi-file-earmark-text', null],
                 'admin.testimonials.index' => ['Testimonials', 'bi-star', null],
                 'admin.settings.edit' => ['Settings', 'bi-gear', null],
+                'admin.team.index' => ['Sub-admins', 'bi-person-badge', null],
             ],
         ];
+
+        // Show each person only what they're allowed to open. "Reports" opens the first report
+        // they have access to (the overview is for profit-report holders only).
+        $staff = auth()->user();
+        $reportRoutes = ['admin.reports.overview', 'admin.reports.sales', 'admin.reports.payouts', 'admin.reports.levels', 'admin.reports.pending', 'admin.reports.repurchase', 'admin.reports.compliance'];
+        $navSections = collect($navSections)->map(function ($items) use ($staff, $reportRoutes) {
+            $visible = [];
+            foreach ($items as $route => $meta) {
+                if ($route === 'admin.reports.overview') {
+                    $route = collect($reportRoutes)->first(fn ($r) => $staff->canAccessRoute($r));
+                    if (! $route) {
+                        continue;
+                    }
+                } elseif (! $staff->canAccessRoute($route)) {
+                    continue;
+                }
+                $visible[$route] = $meta;
+            }
+
+            return $visible;
+        })->filter()->all();
     @endphp
 
     <div class="d-flex">
@@ -55,7 +77,7 @@
                     </span>
                     <div class="min-w-0">
                         <div class="fw-semibold text-white text-truncate small">{{ auth()->user()->name }}</div>
-                        <div class="text-white-50" style="font-size: .7rem;">Administrator</div>
+                        <div class="text-white-50" style="font-size: .7rem;">{{ $staff->isSuperAdmin() ? 'Super Admin' : 'Administrator' }}</div>
                     </div>
                 </div>
             </div>

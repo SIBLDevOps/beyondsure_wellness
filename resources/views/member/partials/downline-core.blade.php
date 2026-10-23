@@ -339,6 +339,34 @@
 </div>
 
 
+{{-- Leg-specific invite links: the sponsor decides which side a new member joins --}}
+@php
+    $inviteCode = auth('member')->user()?->member_code;
+    $inviteLinks = [
+        'left' => ['label' => 'Left leg link', 'badge' => 'info', 'url' => route('register', ['sponsor' => $inviteCode, 'side' => 'left'])],
+        'right' => ['label' => 'Right leg link', 'badge' => 'success', 'url' => route('register', ['sponsor' => $inviteCode, 'side' => 'right'])],
+    ];
+@endphp
+@if ($inviteCode)
+    <div class="card border mb-4">
+        <div class="card-body py-3">
+            <div class="fw-semibold small mb-1"><i class="bi bi-link-45deg me-1 text-success"></i>Your invite links</div>
+            <div class="text-body-tertiary small mb-3">Whoever registers with a link joins that leg of your team. If the slot directly under you is taken, they're placed at the next open spot in the same leg.</div>
+            <div class="row g-2">
+                @foreach ($inviteLinks as $side => $link)
+                    <div class="col-md-6">
+                        <label class="form-label small fw-medium mb-1"><span class="badge bg-{{ $link['badge'] }}-subtle text-{{ $link['badge'] === 'info' ? 'info-emphasis' : 'success' }} text-uppercase me-1">{{ $side }}</span>{{ $link['label'] }}</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" readonly class="form-control font-monospace" id="invite-{{ $side }}" value="{{ $link['url'] }}" onclick="this.select()">
+                            <button type="button" class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText(document.getElementById('invite-{{ $side }}').value).then(() => { this.textContent = 'Copied'; setTimeout(() => this.textContent = 'Copy', 1500); }).catch(() => document.getElementById('invite-{{ $side }}').select())">Copy</button>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+@endif
+
 {{-- 1. Visual Binary Genealogy Tree Card --}}
 <div class="card border mb-4">
     <div class="card-header bg-light-subtle border-bottom py-3">

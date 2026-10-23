@@ -32,10 +32,27 @@
         </div>
 
         <div>
-            <label for="sponsor_code" class="block text-sm font-medium text-slate-700">Sponsor code <span class="text-slate-400">(optional)</span></label>
-            <input id="sponsor_code" name="sponsor_code" type="text" value="{{ old('sponsor_code', $sponsor ?? '') }}" placeholder="e.g. BSW-1001"
+            <label for="sponsor_code" class="block text-sm font-medium text-slate-700">Sponsor code
+                @if ($sponsorRequired ?? false)
+                    <span class="text-rose-500">*</span>
+                @else
+                    <span class="text-slate-400">(optional)</span>
+                @endif
+            </label>
+            @php $joinSide = old('side', $side ?? null); @endphp
+            @if ($joinSide)
+                <input type="hidden" name="side" value="{{ $joinSide }}">
+                <p class="mt-1 mb-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-medium text-emerald-700">
+                    You are joining your sponsor's <strong class="uppercase">{{ $joinSide }}</strong> leg
+                </p>
+            @endif
+            <input id="sponsor_code" name="sponsor_code" type="text" value="{{ old('sponsor_code', $sponsor ?? '') }}" placeholder="e.g. BSW-1001" @required($sponsorRequired ?? false)
                 class="mt-1 w-full rounded-lg border @error('sponsor_code') border-red-500 focus:border-red-500 focus:ring-red-500 @else border-slate-300 focus:border-emerald-500 focus:ring-emerald-500 @enderror px-3.5 py-2.5 text-sm uppercase font-mono transition">
-            <p class="text-xs text-slate-500 mt-1">Leave blank to register directly under company admin downline.</p>
+            @if ($sponsorRequired ?? false)
+                <p class="text-xs text-slate-500 mt-1">A sponsor code is required. Use the invite link your sponsor shared with you.</p>
+            @else
+                <p class="text-xs text-slate-500 mt-1">Leave blank to register directly under company admin downline.</p>
+            @endif
             @error('sponsor_code') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
         </div>
 

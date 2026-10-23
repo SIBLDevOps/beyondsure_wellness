@@ -8,6 +8,7 @@
         'admin.reports.pending' => 'Pending & cash',
         'admin.reports.compliance' => 'Compliance / audit',
     ] as $route => $label)
+        @continue(! auth()->user()->canAccessRoute($route))
         <li class="nav-item">
             <a href="{{ route($route) }}" class="nav-link {{ request()->routeIs($route) ? 'active' : '' }}">{{ $label }}</a>
         </li>

@@ -30,7 +30,7 @@ class AdminAuthController extends Controller
             return back()->withErrors(['email' => 'Invalid credentials.']);
         }
 
-        if (Auth::user()->role !== 'admin') {
+        if (! Auth::user()->isAdminStaff()) {
             Auth::guard('web')->logout();
 
             return back()->withErrors(['email' => 'This account does not have admin access.']);

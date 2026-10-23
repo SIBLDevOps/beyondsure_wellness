@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Member;
 use App\Models\Rank;
 use App\Models\Setting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class SettingsController extends Controller
@@ -18,17 +20,93 @@ class SettingsController extends Controller
         'match_cap_per_cycle', 'match_cap_per_week', 'circuit_breaker_pct',
     ];
 
-    public function edit(): View
-    {
-        $defaults = ['circuit_breaker_pct' => 60, 'gst_pct' => 12];
-        $values = collect(self::KEYS)->mapWithKeys(fn ($k) => [$k => Setting::get($k, $defaults[$k] ?? 0)]);
-        $levelPcts = Setting::getLevelPercentages();
+    public function edit(): View {
+        $defaults   = ['circuit_breaker_pct' => 60, 'gst_pct' => 12];
+        $values     = collect(self::KEYS)->mapWithKeys(fn ($k) => [$k => Setting::get($k, $defaults[$k] ?? 0)]);
+        $levelPcts  = Setting::getLevelPercentages();
 
         return view('admin.settings.edit', [
-            'values' => $values,
-            'levelPcts' => $levelPcts,
-            'ranks' => Rank::orderBy('sort_order')->get(),
+            'requireSponsor' => (bool) Setting::get('require_sponsor', 0),
+            'values'         => $values,
+            'levelPcts'      => $levelPcts,
+            'ranks'          => Rank::orderBy('sort_order')->get(),
         ]);
+    }
+
+    /**
+     * Rank ladder: edit, add and remove ranks. Members are placed on the highest rank whose matched-BV
+     * threshold AND active-directs requirement they both meet, re-evaluated each time a cycle is approved.
+     * Rows come in as ranks[<id>][...] (existing) and new_ranks[][...] (added); a row flagged `remove` is deleted.
+     */
+    public function updateRanks(Request $request): RedirectResponse {
+        $data = $request->validate([
+            'ranks' => ['nullable', 'array'],
+            'ranks.*.name' => ['required', 'string', 'max:50'],
+            'ranks.*.matched_bv_threshold' => ['required', 'numeric', 'min:0'],
+            'ranks.*.min_active_directs' => ['required', 'integer', 'min:0', 'max:1000'],
+            'ranks.*.share' => ['required', 'integer', 'min:1', 'max:1000'],
+            'ranks.*.remove' => ['nullable', 'boolean'],
+            'new_ranks' => ['nullable', 'array'],
+            'new_ranks.*.name' => ['required', 'string', 'max:50'],
+            'new_ranks.*.matched_bv_threshold' => ['required', 'numeric', 'min:0'],
+            'new_ranks.*.min_active_directs' => ['required', 'integer', 'min:0', 'max:1000'],
+            'new_ranks.*.share' => ['required', 'integer', 'min:1', 'max:1000'],
+        ], [
+            'ranks.*.name.required' => 'Every rank needs a name.',
+            'new_ranks.*.name.required' => 'Every new rank needs a name.',
+            '*.share.min' => 'A rank\'s pool share must be at least 1.',
+        ]);
+
+        $existing = collect($data['ranks'] ?? [])->filter(fn ($r) => empty($r['remove']));
+        $added = collect($data['new_ranks'] ?? []);
+
+        $names = $existing->pluck('name')->merge($added->pluck('name'))->map(fn ($n) => mb_strtolower(trim($n)));
+        if ($names->count() !== $names->unique()->count()) {
+            return back()->withInput()->withErrors(['ranks' => 'Rank names must be unique.']);
+        }
+
+        DB::transaction(function () use ($data) {
+            foreach ($data['ranks'] ?? [] as $id => $row) {
+                $rank = Rank::find($id);
+                if (! $rank) {
+                    continue;
+                }
+
+                if (! empty($row['remove'])) {
+                    Member::where('rank', $rank->name)->update(['rank' => 'none']);
+                    $rank->delete();
+
+                    continue;
+                }
+
+                $newName = trim($row['name']);
+                if ($newName !== $rank->name) {
+                    Member::where('rank', $rank->name)->update(['rank' => $newName]);
+                }
+
+                $rank->update([
+                    'name'                  => $newName,
+                    'matched_bv_threshold'  => $row['matched_bv_threshold'],
+                    'min_active_directs'    => $row['min_active_directs'],
+                    'share'                 => $row['share'],
+                ]);
+            }
+
+            foreach ($data['new_ranks'] ?? [] as $row) {
+                Rank::create([
+                    'name'                  => trim($row['name']),
+                    'matched_bv_threshold'  => $row['matched_bv_threshold'],
+                    'min_active_directs'    => $row['min_active_directs'],
+                    'share'                 => $row['share'],
+                    'sort_order'            => 0,
+                ]);
+            }
+
+            // Keep the ladder ordered lowest to highest by threshold.
+            Rank::orderBy('matched_bv_threshold')->get()->each(fn (Rank $r, int $i) => $r->update(['sort_order' => $i + 1]));
+        });
+
+        return redirect()->to(route('admin.settings.edit').'#sec-ranks')->with('status', 'Rank ladder saved. Members are re-ranked when the next cycle is approved.');
     }
 
     public function update(Request $request): RedirectResponse
@@ -80,6 +158,10 @@ class SettingsController extends Controller
 
         Setting::setLevelPercentages($levels);
         Setting::setEligibilityMinVolumes($data['eligibility'] ?? [], $data['eligibility_fallback'] ?? 0);
+
+        // A checkbox that's unticked isn't submitted at all, so read it explicitly rather than
+        // through KEYS (which only saves fields that are present).
+        Setting::set('require_sponsor', $request->boolean('require_sponsor') ? 1 : 0);
 
         $data['cascade_depth'] = count($levels);
         $data['matching_pct'] = $levels[0] ?? 10;
