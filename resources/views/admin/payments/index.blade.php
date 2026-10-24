@@ -3,6 +3,7 @@
 @section('title', 'Payments')
 
 @section('content')
+    @include('admin.partials.flow', ['current' => 'payments'])
     <p class="text-secondary mb-3" style="max-width: 680px;">
         Manual bank transfer / UPI / cash payments need your review before the order counts as paid.
         <strong>Razorpay</strong> payments are verified automatically by the gateway and never need action here

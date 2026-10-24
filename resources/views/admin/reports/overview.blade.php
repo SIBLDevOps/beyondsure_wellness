@@ -11,6 +11,52 @@
         <a href="{{ route('admin.settings.edit') }}" class="link-primary fw-medium text-decoration-none">Settings</a>.
     </p>
 
+    @if ($byRegion)
+        <div class="card border mb-4">
+            <div class="card-header bg-light-subtle border-bottom py-3">
+                <h2 class="h6 mb-0 fw-semibold"><i class="bi bi-geo-alt me-2 text-primary"></i>Compare regions</h2>
+                <div class="text-body-tertiary small">Same date range, one row per region. Click a region name to open every report for it.</div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light text-secondary small">
+                        <tr>
+                            <th class="ps-3">Region</th><th class="text-end">Members</th><th class="text-end">New</th><th class="text-end">Paid orders</th>
+                            <th class="text-end">Revenue (incl. GST)</th><th class="text-end">BV</th><th class="text-end">Paid out</th><th class="text-end pe-3">Payout % of taxable</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($byRegion as $row)
+                            <tr>
+                                <td class="ps-3 fw-semibold"><a href="{{ request()->fullUrlWithQuery(['region' => $row['region']->id]) }}" class="text-decoration-none">{{ $row['region']->name }}</a>
+                                    @unless ($row['region']->is_active)<span class="badge bg-secondary-subtle text-secondary ms-1">Closed</span>@endunless</td>
+                                <td class="text-end">{{ number_format($row['members']) }}</td>
+                                <td class="text-end">{{ number_format($row['new_members']) }}</td>
+                                <td class="text-end">{{ number_format($row['orders']) }}</td>
+                                <td class="text-end">₹{{ number_format($row['revenue'], 0) }}</td>
+                                <td class="text-end">₹{{ number_format($row['bv'], 0) }}</td>
+                                <td class="text-end">₹{{ number_format($row['paid_out'], 0) }}</td>
+                                <td class="text-end pe-3">{{ $row['payout_pct'] }}%</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                    <tfoot class="table-light fw-semibold">
+                        <tr>
+                            <td class="ps-3">All regions</td>
+                            <td class="text-end">{{ number_format($byRegion->sum('members')) }}</td>
+                            <td class="text-end">{{ number_format($byRegion->sum('new_members')) }}</td>
+                            <td class="text-end">{{ number_format($byRegion->sum('orders')) }}</td>
+                            <td class="text-end">₹{{ number_format($byRegion->sum('revenue'), 0) }}</td>
+                            <td class="text-end">₹{{ number_format($byRegion->sum('bv'), 0) }}</td>
+                            <td class="text-end">₹{{ number_format($byRegion->sum('paid_out'), 0) }}</td>
+                            <td class="text-end pe-3">{{ $byRegion->sum('taxable') > 0 ? round($byRegion->sum('paid_out') / $byRegion->sum('taxable') * 100, 1) : 0 }}%</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    @endif
+
     <div class="row g-3 mb-4">
         @foreach ([
             ['label' => 'Revenue', 'value' => '₹' . number_format($data['revenue'], 0), 'sub' => $data['order_count'] . ' orders, incl. GST', 'icon' => 'bi-cash-stack', 'color' => 'success'],

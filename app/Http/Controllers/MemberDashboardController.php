@@ -27,6 +27,7 @@ class MemberDashboardController extends Controller
         $totalEarned = (float) $member->ledgerEntries()->where('amount', '>', 0)->sum('amount');
 
         return view('member.dashboard', [
+            'onboarding' => app(\App\Services\OnboardingService::class)->progress($member),
             'member' => $member,
             'walletBalance' => $member->walletBalance(),
             'totalEarned' => $totalEarned,

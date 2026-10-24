@@ -211,6 +211,9 @@
                         @if ($i === 2)
                             <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-600 text-white text-xs font-semibold px-3 py-1 rounded-full">Most popular</span>
                         @endif
+                        @if ($plans->pluck('region_id')->unique()->count() > 1)
+                            <span class="self-start mb-2 text-[11px] font-semibold uppercase tracking-wide bg-sky-50 text-sky-700 border border-sky-200 rounded-full px-2 py-0.5">{{ $plan->region?->name }}</span>
+                        @endif
                         <div class="font-bold text-lg text-ink-900">{{ $plan->name }}</div>
                         <p class="text-xs text-ink-500 mt-1 min-h-[32px]">{{ $plan->description }}</p>
                         <div class="mt-4">

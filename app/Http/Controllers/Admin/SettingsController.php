@@ -14,14 +14,13 @@ use Illuminate\View\View;
 class SettingsController extends Controller
 {
     private const KEYS = [
-        'gst_pct',
         'split_cost_pct', 'split_pool_pct', 'split_company_pct',
         'self_pct', 'sponsor_pct', 'matching_pct', 'cascade_depth', 'rank_pool_pct',
         'match_cap_per_cycle', 'match_cap_per_week', 'circuit_breaker_pct',
     ];
 
     public function edit(): View {
-        $defaults   = ['circuit_breaker_pct' => 60, 'gst_pct' => 12];
+        $defaults   = ['circuit_breaker_pct' => 60];
         $values     = collect(self::KEYS)->mapWithKeys(fn ($k) => [$k => Setting::get($k, $defaults[$k] ?? 0)]);
         $levelPcts  = Setting::getLevelPercentages();
 
@@ -112,7 +111,6 @@ class SettingsController extends Controller
     public function update(Request $request): RedirectResponse
     {
         $rules = [
-            'gst_pct' => ['required', 'numeric', 'min:0', 'max:100'],
             'split_cost_pct' => ['required', 'numeric', 'min:0', 'max:100'],
             'split_pool_pct' => ['required', 'numeric', 'min:0', 'max:100'],
             'split_company_pct' => ['required', 'numeric', 'min:0', 'max:100'],

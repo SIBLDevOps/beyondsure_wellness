@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Concerns\RedirectsAfterMemberAuth;
 use App\Http\Controllers\Controller;
 use App\Models\Member;
+use App\Models\Plan;
+use App\Models\Region;
 use App\Models\Setting;
 use App\Services\MemberService;
 use App\Services\OtpService;
@@ -24,21 +26,36 @@ class RegisterController extends Controller
 
     public function create(Request $request): View
     {
+        $sponsor = $request->filled('sponsor')
+            ? Member::where('member_code', strtoupper(trim((string) $request->query('sponsor'))))->first()
+            : null;
+        $requested = $request->filled('region') ? Region::where('code', strtoupper((string) $request->query('region')))->first() : null;
+        $planRegion = Plan::whereKey($request->session()->get('intended_plan_id'))->first()?->region;
+
+        $regions = Region::where('is_active', true)->orderBy('sort_order')->get();
+        // Who decides the region: the sponsor's, else the link's, else the plan being bought, else the only one open.
+        $region = $sponsor?->region ?? $requested ?? $planRegion ?? ($regions->count() === 1 ? $regions->first() : null);
+
         return view('auth.register', [
             'phone' => $request->query('phone'),
             'sponsor' => $request->query('sponsor'),
             'side' => in_array($request->query('side'), ['left', 'right'], true) ? $request->query('side') : null,
-            'sponsorRequired' => $this->sponsorRequired(),
+            'sponsorRequired' => $this->sponsorRequired($region),
+            'region' => $region,
+            'regions' => $regions,
+            'regionFixed' => (bool) ($sponsor || $requested || $planRegion),
         ]);
     }
 
     /**
-     * Admin setting (Settings -> registration). The very first member has nobody to sponsor them,
-     * so registration stays open while the network is empty — otherwise nobody could ever join.
+     * Admin setting (Settings -> registration). The very first member of a region has nobody to sponsor
+     * them, so registration stays open while that region is empty — otherwise nobody could ever join.
      */
-    private function sponsorRequired(): bool
+    private function sponsorRequired(?Region $region = null): bool
     {
-        return (bool) Setting::get('require_sponsor', 0) && Member::exists();
+        $hasMembers = $region ? $region->members()->exists() : Member::exists();
+
+        return (bool) Setting::get('require_sponsor', 0) && $hasMembers;
     }
 
     public function store(Request $request): RedirectResponse
@@ -52,19 +69,56 @@ class RegisterController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'regex:/^[6-9]\d{9}$/', 'unique:members,phone'],
+            'phone' => ['required', 'string', 'regex:/^[6-9]\d{9}$/'],
             'email' => ['nullable', 'email', 'max:255', 'unique:members,email'],
-            'sponsor_code' => [$this->sponsorRequired() ? 'required' : 'nullable', 'string', 'exists:members,member_code'],
+            'sponsor_code' => ['nullable', 'string', 'exists:members,member_code'],
             'side' => ['nullable', 'in:left,right'],
+            'region' => ['nullable', 'string', 'exists:regions,code'],
         ], [
-            'sponsor_code.required' => 'A sponsor code is required to register. Ask the person who invited you for their link.',
             'name.required' => 'Please enter your full name.',
             'phone.required' => 'Mobile number is required.',
             'phone.regex' => 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.',
-            'phone.unique' => 'This mobile number is already registered. Please sign in instead.',
             'email.email' => 'Please enter a valid email address.',
             'sponsor_code.exists' => 'The sponsor code entered does not exist.',
+            'region.exists' => 'The selected region does not exist.',
         ]);
+
+        // Which region is this person joining? The sponsor's region wins; a region chosen on the form
+        // or link must agree with it.
+        $sponsor = ! empty($data['sponsor_code']) ? Member::with('region')->where('member_code', $data['sponsor_code'])->first() : null;
+        $chosen = ! empty($data['region']) ? Region::where('code', $data['region'])->first() : null;
+        $planRegion = Plan::whereKey($request->session()->get('intended_plan_id'))->first()?->region;
+
+        if ($sponsor && $chosen && $sponsor->region_id !== $chosen->id) {
+            return back()->withInput()->withErrors(['sponsor_code' => "This sponsor belongs to the {$sponsor->region->name} region, not {$chosen->name}. Use a sponsor from the same region."]);
+        }
+
+        $region = $sponsor?->region ?? $chosen ?? $planRegion
+            ?? (Region::where('is_active', true)->count() === 1 ? Region::where('is_active', true)->first() : null);
+
+        if (! $region) {
+            return back()->withInput()->withErrors(['region' => 'Please choose your region.']);
+        }
+        if (! $region->is_active) {
+            return back()->withInput()->withErrors(['region' => "The {$region->name} region is not open for new members right now."]);
+        }
+
+        // One mobile number, one region — ever. Say exactly where it already lives.
+        if ($existing = Member::with('region')->where('phone', $data['phone'])->first()) {
+            $where = $existing->region?->name ?? 'another region';
+            $message = $existing->region_id === $region->id
+                ? 'This mobile number is already registered. Please sign in instead.'
+                : "This mobile number is already registered in the {$where} region. A mobile number can belong to only one region — sign in to that account instead.";
+
+            return back()->withInput()->withErrors(['phone' => $message]);
+        }
+
+        if ($this->sponsorRequired($region) && ! $sponsor) {
+            return back()->withInput()->withErrors(['sponsor_code' => "A sponsor code is required to join the {$region->name} region. Ask the person who invited you for their link."]);
+        }
+
+        $data['region_id'] = $region->id;
+        unset($data['region']);
 
         $result = $this->otp->issue($data['phone'], 'register');
 
@@ -130,15 +184,25 @@ class RegisterController extends Controller
             ? Member::where('member_code', $pending['sponsor_code'])->first()
             : null;
 
-        // When registering directly without a sponsor, place under the company admin/root account
+        $region = Region::findOrFail($pending['region_id'] ?? $sponsor?->region_id ?? Region::fallbackId());
+
+        // Nobody can be added to a sponsor from another region (this also guards a stale session).
+        if ($sponsor && $sponsor->region_id !== $region->id) {
+            $request->session()->forget('pending_registration');
+
+            return redirect()->route('register')->withErrors(['sponsor_code' => 'That sponsor is in a different region. Please start again.']);
+        }
+
+        // Registering without a sponsor places the member under their own region's root. The very
+        // first member of a region becomes that region's root (no parent).
         if (! $sponsor) {
-            $sponsor = Member::whereNull('placement_id')->orderBy('id')->first()
-                ?? Member::orderBy('id')->first();
+            $sponsor = $region->root();
         }
 
         $placement = $this->members->placeUnderSponsor($sponsor, $sponsor ? ($pending['side'] ?? null) : null);
 
         $member = Member::create([
+            'region_id' => $region->id,
             'member_code' => $this->members->generateMemberCode(),
             'name' => $pending['name'],
             'phone' => $pending['phone'],

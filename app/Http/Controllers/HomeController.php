@@ -13,7 +13,9 @@ class HomeController extends Controller
 {
     public function index(): View
     {
-        $plans = Plan::where('is_active', true)->with('products')->orderBy('price')->get();
+        $plans = Plan::where('is_active', true)
+            ->whereHas('region', fn ($q) => $q->where('is_active', true))
+            ->with(['products', 'region'])->orderBy('region_id')->orderBy('price')->get();
 
         $benefitGroups = Product::whereNotNull('benefit_group')
             ->select('benefit_group')

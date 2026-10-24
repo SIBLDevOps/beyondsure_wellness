@@ -3,6 +3,8 @@
 @section('title', 'Orders')
 
 @section('content')
+    @include('admin.partials.flow', ['current' => null])
+    @include('admin.partials.region-filter')
     <p class="text-secondary mb-3" style="max-width: 680px;">
         Every plan purchase, in order. <strong>pending_payment</strong> → member hasn't paid yet.
         <strong>paid</strong> → payment verified, waiting for a
@@ -55,11 +57,14 @@
                                     {{ $order->member->name }}
                                 </a>
                                 <span class="font-monospace text-body-tertiary" style="font-size: .7rem;">{{ $order->member->member_code }}</span>
+                                @if ($regions->count() > 1)<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle fw-normal" style="font-size:.62rem;">{{ $order->member->region?->name }}</span>@endif
                             </td>
                             <td class="fw-medium">{{ $order->plan->name }}</td>
                             <td class="text-end fw-semibold" data-sort-value="{{ $order->amount }}">
                                 ₹{{ number_format($order->amount, 0) }}
-                                <div class="text-body-tertiary fw-normal" style="font-size: .7rem;">GST ₹{{ number_format($order->gstAmount(), 0) }}</div>
+                                @if (auth()->user()->canSeeFinance())
+                                    <div class="text-body-tertiary fw-normal" style="font-size: .7rem;">GST ₹{{ number_format($order->gstAmount(), 0) }}</div>
+                                @endif
                             </td>
                             <td class="text-end text-primary fw-medium" data-sort-value="{{ $order->bv }}">₹{{ number_format($order->bv, 0) }}</td>
                             <td>

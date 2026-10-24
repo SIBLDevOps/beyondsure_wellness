@@ -116,6 +116,36 @@
         </div>
     </div>
 
+    @if ($member->region)
+        <div class="alert alert-info py-2 small d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-geo-alt-fill"></i>
+            <span>Region: <strong>{{ $member->region->name }}</strong> — this member's sponsor, placement and tree all stay inside this region.</span>
+        </div>
+    @endif
+
+    {{-- Onboarding: where this member is on the getting-started path, and what to do to help --}}
+    <div class="card border mb-4">
+        <div class="card-header bg-light-subtle border-bottom py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h2 class="h6 mb-0 fw-semibold"><i class="bi bi-rocket-takeoff me-2 text-primary"></i>Getting-started progress</h2>
+            <span class="badge {{ $onboarding['complete'] ? 'bg-success' : 'bg-warning text-dark' }}">{{ $onboarding['complete'] ? 'Completed' : $onboarding['done'].' of '.$onboarding['total'].' steps' }}</span>
+        </div>
+        <div class="card-body">
+            <ul class="list-unstyled mb-0 d-grid gap-2">
+                @foreach ($onboarding['steps'] as $s)
+                    @php $isNext = $onboarding['next'] && $onboarding['next']['key'] === $s['key']; @endphp
+                    <li class="d-flex gap-2 align-items-start">
+                        <i class="bi {{ $s['done'] ? 'bi-check-circle-fill text-success' : ($isNext ? 'bi-arrow-right-circle-fill text-primary' : 'bi-circle text-secondary') }} mt-1"></i>
+                        <div class="small">
+                            <span class="fw-semibold">{{ $s['title'] }}</span>
+                            @if ($isNext)<span class="badge bg-primary-subtle text-primary-emphasis ms-1">Stuck here</span>@endif
+                            @if (! $s['done'])<div class="text-secondary">{{ $s['admin'] }}</div>@endif
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    </div>
+
     <div class="row g-4 mb-4">
         {{-- Left Column: Member Details & Upline Table --}}
         <div class="col-lg-6">

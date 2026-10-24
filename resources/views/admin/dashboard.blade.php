@@ -6,6 +6,8 @@
     @php
         // Links to sections this person can't open become inert instead of leading to a 403.
         $go = fn (string $r) => auth()->user()->canAccessRoute($r) ? route($r) : '#';
+        // Commission totals and the finance shortcuts only show for people granted Finance access.
+        $finance = auth()->user()->canSeeFinance();
     @endphp
     <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
         <div>
@@ -15,12 +17,16 @@
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ $go('admin.cycles.index') }}" class="btn btn-sm btn-primary">
-                <i class="bi bi-play-circle me-1"></i>Run Cycle
-            </a>
-            <a href="{{ $go('admin.plans.index') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-layers me-1"></i>Plans
-            </a>
+            @if (auth()->user()->canAccessRoute('admin.cycles.index'))
+                <a href="{{ $go('admin.cycles.index') }}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-play-circle me-1"></i>Run Cycle
+                </a>
+            @endif
+            @if (auth()->user()->canAccessRoute('admin.plans.index'))
+                <a href="{{ $go('admin.plans.index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-layers me-1"></i>Plans
+                </a>
+            @endif
         </div>
     </div>
 
@@ -193,6 +199,7 @@
             </div>
         </div>
 
+    @if ($finance)
         <div class="col-6 col-md-4">
             <div class="card border h-100">
                 <div class="card-body py-3 d-flex align-items-center gap-3">
@@ -218,6 +225,7 @@
                 </div>
             </div>
         </div>
+    @endif
     </div>
 
     {{-- Tables Row 1: Recent Orders & Payments Verification Queue --}}
@@ -381,6 +389,7 @@
                     <div class="text-body-tertiary small">Quick shortcuts to platform configuration &amp; reporting</div>
                 </div>
                 <div class="card-body p-3 d-flex flex-column justify-content-between gap-2">
+                    @if ($finance)
                     <a href="{{ $go('admin.plans.index') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
                         <div class="d-flex align-items-center gap-3 min-w-0">
                             <div class="stat-icon bg-primary-subtle text-primary flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;">
@@ -419,7 +428,9 @@
                         </div>
                         <i class="bi bi-chevron-right text-secondary small ms-2 flex-shrink-0"></i>
                     </a>
+                    @endif
 
+                    @if (auth()->user()->canAccessRoute('admin.site-content.edit'))
                     <a href="{{ $go('admin.site-content.edit') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
                         <div class="d-flex align-items-center gap-3 min-w-0">
                             <div class="stat-icon bg-info-subtle text-info-emphasis flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;">
@@ -432,6 +443,7 @@
                         </div>
                         <i class="bi bi-chevron-right text-secondary small ms-2 flex-shrink-0"></i>
                     </a>
+                    @endif
                 </div>
             </div>
         </div>

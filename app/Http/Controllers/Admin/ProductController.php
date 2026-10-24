@@ -54,9 +54,9 @@ class ProductController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'sku' => ['required', 'string', 'max:255', 'unique:products,sku,'.($ignoreId ?? 'NULL').',id'],
             'description' => ['nullable', 'string'],
-            'cost_price' => ['required', 'numeric', 'min:0'],
+            'cost_price' => [auth()->user()->canSeeFinance() ? 'required' : 'nullable', 'numeric', 'min:0'],
             'sell_price' => ['required', 'numeric', 'min:0'],
-            'gst_pct' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'gst_pct' => [auth()->user()->canSeeFinance() ? 'required' : 'nullable', 'numeric', 'min:0', 'max:100'],
             'benefit_group' => ['nullable', 'string', 'max:255'],
             'usage_limit' => ['nullable', 'integer', 'min:1'],
             'usage_period' => ['nullable', 'in:year,month,lifetime'],
@@ -70,12 +70,23 @@ class ProductController extends Controller
             'cost_price.min' => 'Cost price cannot be negative.',
             'sell_price.required' => 'Sell price is required (taxable retail value).',
             'sell_price.min' => 'Sell price cannot be negative.',
+            'gst_pct.required' => 'GST rate is required for every product (enter 0 for exempt items).',
             'gst_pct.min' => 'GST percentage cannot be negative.',
             'gst_pct.max' => 'GST percentage cannot exceed 100%.',
         ]);
 
         $data['is_active'] = $request->boolean('is_active', true);
-        $data['gst_pct'] = $data['gst_pct'] !== null && $data['gst_pct'] !== '' ? $data['gst_pct'] : null;
+        $data['gst_pct'] = ($data['gst_pct'] ?? null) !== null && $data['gst_pct'] !== '' ? $data['gst_pct'] : null;
+
+        // Cost price and GST rate are money-flow figures. Without Finance access they are never
+        // accepted from the form (even if someone posts them by hand): an edit leaves the stored
+        // values untouched, and a new product starts at cost 0 until Finance fills it in.
+        if (! auth()->user()->canSeeFinance()) {
+            unset($data['cost_price'], $data['gst_pct']);
+            if ($ignoreId === null) {
+                $data['cost_price'] = 0;
+            }
+        }
 
         return $data;
     }

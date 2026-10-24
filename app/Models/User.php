@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'permissions', 'is_active'])]
+#[Fillable(['name', 'email', 'password', 'role', 'permissions', 'is_active', 'region_ids'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -29,8 +29,29 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'permissions' => 'array',
+            'region_ids' => 'array',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * Which regions this person may see: null means all of them (Super Admin, or a sub-admin with no
+     * restriction), otherwise the list of region ids they were limited to.
+     *
+     * @return list<int>|null
+     */
+    public function regionScope(): ?array
+    {
+        if (! $this->isSubAdmin() || empty($this->region_ids)) {
+            return null;
+        }
+
+        return array_map('intval', $this->region_ids);
+    }
+
+    public function isRegionRestricted(): bool
+    {
+        return $this->regionScope() !== null;
     }
 
     /** Role 'admin' is the Super Admin: sees everything and manages the sub-admins. */
@@ -56,18 +77,40 @@ class User extends Authenticatable
             return true;
         }
 
-        return $this->isSubAdmin() && in_array($permission, $this->permissions ?? [], true);
+        if (! $this->isSubAdmin()) {
+            return false;
+        }
+
+        $granted = $this->permissions ?? [];
+
+        // Being allowed to edit the catalog naturally includes viewing it.
+        if ($permission === 'catalog' && in_array('catalog.manage', $granted, true)) {
+            return true;
+        }
+
+        return in_array($permission, $granted, true);
+    }
+
+    /** True for anyone who may see profit, cost and money-flow figures (only the Super Admin by default). */
+    public function canSeeFinance(): bool
+    {
+        return $this->hasPermission('finance');
     }
 
     public function canAccessRoute(string $routeName): bool
     {
-        $needed = AdminPermissions::forRoute($routeName);
+        if (! $this->isAdminStaff()) {
+            return false;
+        }
 
-        return match (true) {
-            ! $this->isAdminStaff() => false,
-            $needed === null => true,
-            $needed === 'super' => $this->isSuperAdmin(),
-            default => $this->hasPermission($needed),
-        };
+        foreach (AdminPermissions::requirementsFor($routeName) as $needed) {
+            $allowed = $needed === 'super' ? $this->isSuperAdmin() : $this->hasPermission($needed);
+
+            if (! $allowed) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

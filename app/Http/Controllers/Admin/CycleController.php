@@ -46,6 +46,10 @@ class CycleController extends Controller
     {
         $this->cycles->approve($cycle, Auth::user());
 
+        if (! auth()->user()->canSeeFinance()) {
+            return back()->with('status', 'Cycle approved — income has been posted to members.');
+        }
+
         return back()->with('status', "Cycle approved — pool ₹{$cycle->fresh()->pool_bv}, paid ₹{$cycle->fresh()->total_paid}.");
     }
 }

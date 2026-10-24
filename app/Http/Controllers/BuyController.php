@@ -26,7 +26,11 @@ class BuyController extends Controller
         }
 
         if (Auth::guard('member')->check()) {
-            $order = $this->orders->place(Auth::guard('member')->user(), $plan);
+            try {
+                $order = $this->orders->place(Auth::guard('member')->user(), $plan);
+            } catch (\DomainException $e) {
+                return redirect()->route('member.plans.index')->withErrors(['plan' => $e->getMessage()]);
+            }
 
             return redirect()->route('member.orders.pay', $order);
         }

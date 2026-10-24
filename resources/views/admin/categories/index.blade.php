@@ -3,15 +3,18 @@
 @section('title', 'Categories')
 
 @section('content')
+    @php $canEdit = auth()->user()->canAccessRoute('admin.categories.edit'); @endphp
     <div class="d-flex align-items-start justify-content-between gap-3 mb-4 flex-wrap">
         <p class="text-secondary mb-0" style="max-width: 620px;">
             Groups products for organizing plan bundles. Mark a category <strong>Free</strong> when it holds
             complimentary benefits (teleconsultation, discounts, etc.) rather than paid physical goods — this
             is for organization only and doesn't affect cost or compensation calculations.
         </p>
+        @if ($canEdit)
         <a href="{{ route('admin.categories.create') }}" class="btn btn-success flex-shrink-0">
             <i class="bi bi-plus-lg me-1"></i>New category
         </a>
+        @endif
     </div>
 
     <div class="card border">
@@ -33,7 +36,9 @@
                         <th data-sort-key="text">Slug</th>
                         <th data-sort-key="text">Category Type</th>
                         <th class="text-center" data-sort-key="number">Products</th>
+                        @if ($canEdit)
                         <th class="text-end pe-3">Actions</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -50,6 +55,7 @@
                             <td class="text-center" data-sort-value="{{ $category->products_count }}">
                                 <span class="badge bg-light text-dark border px-2 py-1">{{ $category->products_count }}</span>
                             </td>
+                            @if ($canEdit)
                             <td class="text-end pe-3">
                                 <div class="d-inline-flex gap-1">
                                     <a href="{{ route('admin.categories.edit', $category) }}" class="btn btn-sm btn-outline-primary">
@@ -65,6 +71,7 @@
                                     @endif
                                 </div>
                             </td>
+                            @endif
                         </tr>
                     @empty
                         <tr><td colspan="5" class="text-center text-body-tertiary py-5">No categories yet.</td></tr>

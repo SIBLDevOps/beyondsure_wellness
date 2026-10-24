@@ -3,6 +3,7 @@
 @section('title', 'Withdrawals')
 
 @section('content')
+    @include('admin.partials.flow', ['current' => 'withdrawals'])
     <div class="d-flex align-items-start justify-content-between gap-3 mb-4 flex-wrap">
         <p class="text-secondary mb-0" style="max-width: 680px;">
             <strong>pending</strong> → member requested, needs approve/reject. <strong>approved</strong> → ready to

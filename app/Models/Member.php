@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+#[\Illuminate\Database\Eloquent\Attributes\ScopedBy([\App\Models\Scopes\AdminRegionScope::class])]
 class Member extends Authenticatable
 {
     use HasFactory, Notifiable;
@@ -24,6 +25,7 @@ class Member extends Authenticatable
         'position',
         'path',
         'rank',
+        'region_id',
         'status',
         'phone_verified_at',
         'email_verified_at',
@@ -46,6 +48,20 @@ class Member extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /** A member always lives in exactly one region: their sponsor's, else their parent's, else the starting one. */
+    protected static function booted(): void
+    {
+        static::creating(function (Member $m) {
+            $m->region_id ??= Member::query()->whereKey($m->sponsor_id ?? $m->placement_id)->value('region_id')
+                ?? Region::fallbackId();
+        });
+    }
+
+    public function region(): BelongsTo
+    {
+        return $this->belongsTo(Region::class);
     }
 
     public function sponsor(): BelongsTo

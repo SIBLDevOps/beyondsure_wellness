@@ -26,7 +26,7 @@
                         {{ $bucket }}: {{ $count }}
                     </span>
                 @endforeach
-                <a href="{{ route('admin.reports.pending.csv') }}" class="btn btn-sm btn-outline-success"><i class="bi bi-download me-1"></i>Export CSV</a>
+                <a href="{{ route('admin.reports.pending.csv', request()->query()) }}" class="btn btn-sm btn-outline-success"><i class="bi bi-download me-1"></i>Export CSV</a>
             </div>
         </div>
         <div class="table-responsive">
@@ -70,7 +70,7 @@
                     (showing {{ $data['withdrawals_awaiting_dispatch']->firstItem() ?? 0 }}–{{ $data['withdrawals_awaiting_dispatch']->lastItem() ?? 0 }} of {{ $data['withdrawals_awaiting_dispatch']->total() }}).
                 </div>
             </div>
-            <a href="{{ route('admin.reports.pending.withdrawals.csv') }}" class="btn btn-sm btn-outline-success"><i class="bi bi-download me-1"></i>Export CSV</a>
+            <a href="{{ route('admin.reports.pending.withdrawals.csv', request()->query()) }}" class="btn btn-sm btn-outline-success"><i class="bi bi-download me-1"></i>Export CSV</a>
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -109,7 +109,7 @@
                     (showing {{ $data['unsettled_orders']->firstItem() ?? 0 }}–{{ $data['unsettled_orders']->lastItem() ?? 0 }} of {{ $data['unsettled_orders']->total() }}).
                 </div>
             </div>
-            <a href="{{ route('admin.reports.pending.unsettled.csv') }}" class="btn btn-sm btn-outline-success"><i class="bi bi-download me-1"></i>Export CSV</a>
+            <a href="{{ route('admin.reports.pending.unsettled.csv', request()->query()) }}" class="btn btn-sm btn-outline-success"><i class="bi bi-download me-1"></i>Export CSV</a>
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -118,7 +118,9 @@
                         <th>Order</th>
                         <th>Member</th>
                         <th>Plan</th>
+                        @if (auth()->user()->canSeeFinance())
                         <th class="text-end">BV</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -127,7 +129,9 @@
                             <td class="font-monospace small fw-semibold">{{ $o->order_code }}</td>
                             <td class="fw-medium">{{ $o->member->name }}</td>
                             <td>{{ $o->plan->name }}</td>
+                            @if (auth()->user()->canSeeFinance())
                             <td class="text-end fw-medium">₹{{ number_format($o->bv, 0) }}</td>
+                            @endif
                         </tr>
                     @empty
                         <tr><td colspan="4" class="text-center text-body-tertiary py-4">None.</td></tr>

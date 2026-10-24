@@ -3,7 +3,11 @@
 @section('title', 'Plans')
 
 @section('content')
-    <p class="text-secondary mb-3">Pick a wellness plan bundle — you'll confirm billing and complete payment on the next step.</p>
+    @error('plan') <div class="alert alert-danger py-2">{{ $message }}</div> @enderror
+    <p class="text-secondary mb-3">
+        Pick a wellness plan bundle — you'll confirm billing and complete payment on the next step.
+        @if ($region ?? null)<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1"><i class="bi bi-geo-alt me-1"></i>{{ $region->name }} region plans</span>@endif
+    </p>
 
     {{-- Plans Comparison Table --}}
     <div class="card border mb-4">

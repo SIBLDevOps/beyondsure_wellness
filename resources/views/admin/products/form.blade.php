@@ -3,236 +3,253 @@
 @section('title', $product->exists ? 'Edit product' : 'New product')
 
 @section('content')
-    <div class="card border" style="max-width: 720px;">
-        <div class="card-header bg-light-subtle border-bottom py-3 d-flex align-items-center justify-content-between">
-            <h2 class="h6 mb-0 fw-semibold">
-                <i class="bi bi-box-seam me-2 text-primary"></i>
-                {{ $product->exists ? 'Edit Product — ' . $product->name : 'Create New Product' }}
-            </h2>
-            <a href="{{ route('admin.products.index') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i>Back to Products
-            </a>
+    @php
+        $finance = auth()->user()->canSeeFinance();
+        $slabs = [[0, 'Exempt', 'Free benefits, basic items'], [5, 'AYUSH / Meds', null], [12, 'Wellness', null], [18, 'Supplements', null], [28, 'Luxury', null]];
+        $sell = (float) old('sell_price', $product->sell_price ?? 0);
+        $cost = (float) old('cost_price', $product->cost_price ?? 0);
+        $rate = old('gst_pct', $product->gst_pct);
+    @endphp
+
+    <style>
+        .pf-card { border-radius: 1rem; }
+        .pf-card .card-header { background: transparent; border-bottom: 0; padding: 1.1rem 1.4rem .2rem; display: flex; gap: .8rem; align-items: center; }
+        .pf-chip { width: 2.3rem; height: 2.3rem; border-radius: .65rem; display: grid; place-items: center; flex: none; background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); }
+        .pf-chip.good { background: var(--bs-success-bg-subtle); color: var(--bs-success-text-emphasis); }
+        .pf-chip.warn { background: var(--bs-warning-bg-subtle); color: var(--bs-warning-text-emphasis); }
+        .pf-card h2 { font-size: 1rem; font-weight: 700; margin: 0; }
+        .pf-card .sub { font-size: .8rem; color: var(--bs-secondary-color); margin: 0; }
+        .pf-card .card-body { padding: .9rem 1.4rem 1.3rem; }
+        .pf-label { font-size: .8rem; font-weight: 600; margin-bottom: .3rem; }
+        .pf-hint { font-size: .74rem; color: var(--bs-secondary-color); margin-top: .3rem; line-height: 1.4; }
+        .slab { border: 1.5px solid var(--bs-border-color); background: var(--bs-body-bg); border-radius: .7rem; padding: .45rem .8rem; text-align: center; cursor: pointer; line-height: 1.2; transition: .12s; min-width: 5.2rem; }
+        .slab b { display: block; font-size: .95rem; font-variant-numeric: tabular-nums; }
+        .slab span { font-size: .66rem; color: var(--bs-secondary-color); }
+        .slab:hover { border-color: var(--bs-primary); }
+        .slab.on { border-color: var(--bs-primary); background: var(--bs-primary-bg-subtle); box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb), .15); }
+        .sum-row { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; font-size: .86rem; border-bottom: 1px dashed var(--bs-border-color); }
+        .sum-row:last-child { border-bottom: 0; }
+        .sum-row .v { font-weight: 650; font-variant-numeric: tabular-nums; text-align: right; }
+        .sum-total { background: var(--bs-success-bg-subtle); border-radius: .75rem; padding: .7rem .9rem; margin-top: .6rem; }
+        .sum-total .v { font-size: 1.35rem; font-weight: 700; color: var(--bs-success-text-emphasis); font-variant-numeric: tabular-nums; }
+        .save-bar { position: sticky; bottom: 0; z-index: 5; background: var(--bs-body-bg); border-top: 1px solid var(--bs-border-color); margin: 0 -1.5rem -1.5rem; padding: .8rem 1.5rem; display: flex; gap: .6rem; align-items: center; }
+    </style>
+
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <div>
+            <h2 class="h5 fw-bold mb-0">{{ $product->exists ? 'Edit product' : 'New product' }}@if ($product->exists)<span class="text-secondary fw-normal"> · {{ $product->name }}</span>@endif</h2>
+            <div class="small text-secondary">Products are bundled into plans. Each product carries its own GST rate.</div>
         </div>
-        <div class="card-body">
-            <form method="POST" action="{{ $product->exists ? route('admin.products.update', $product) : route('admin.products.store') }}">
-                @csrf
-                @if ($product->exists) @method('PUT') @endif
+        <a href="{{ route('admin.products.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to products</a>
+    </div>
 
-                {{-- 1. Product Identity --}}
-                <fieldset class="border rounded-3 p-3 mb-4">
-                    <legend class="float-none w-auto small fw-semibold text-secondary px-2 mb-0" style="font-size: .78rem;">
-                        1. Product Identity &amp; Category
-                    </legend>
-                    <div class="row g-3 mt-1">
-                        <div class="col-md-6">
-                            <label class="form-label small fw-medium">Category <span class="text-danger">*</span></label>
-                            <select name="category_id" required class="form-select @error('category_id') is-invalid @enderror">
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category->id }}" @selected(old('category_id', $product->category_id) == $category->id)>
-                                        {{ $category->name }} {{ $category->is_free ? '(Complimentary)' : '' }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('category_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-medium">SKU Code <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light"><i class="bi bi-upc-scan text-muted"></i></span>
-                                <input name="sku" value="{{ old('sku', $product->sku) }}" placeholder="e.g. SYR-001" required
-                                    class="form-control font-monospace @error('sku') is-invalid @enderror">
-                                @error('sku') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label small fw-medium">Product Name <span class="text-danger">*</span></label>
-                            <input name="name" value="{{ old('name', $product->name) }}" placeholder="Enter product or benefit name" required
-                                class="form-control @error('name') is-invalid @enderror">
-                            @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label small fw-medium">Description</label>
-                            <textarea name="description" rows="2" placeholder="Optional details shown on bundle views…"
-                                class="form-control @error('description') is-invalid @enderror">{{ old('description', $product->description) }}</textarea>
-                            @error('description') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
+    <form method="POST" action="{{ $product->exists ? route('admin.products.update', $product) : route('admin.products.store') }}">
+        @csrf
+        @if ($product->exists) @method('PUT') @endif
+
+        <div class="row g-4 align-items-start">
+            <div class="col-lg-8 d-grid gap-4">
+
+                {{-- 1. Identity --}}
+                <section class="card border pf-card">
+                    <div class="card-header">
+                        <div class="pf-chip"><i class="bi bi-box-seam"></i></div>
+                        <div><h2>What is this product?</h2><p class="sub">Name, SKU code and category.</p></div>
                     </div>
-                </fieldset>
-
-                {{-- 2. Pricing & GST --}}
-                <fieldset class="border rounded-3 p-3 mb-4">
-                    <legend class="float-none w-auto small fw-semibold text-secondary px-2 mb-0" style="font-size: .78rem;">
-                        2. Cost, Retail Pricing &amp; Product-Wise GST
-                    </legend>
-                    <div class="row g-3 mt-1">
-                        <div class="col-md-4">
-                            <label class="form-label small fw-medium">Cost Price (₹) <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light">₹</span>
-                                <input name="cost_price" id="cost_price" type="number" step="0.01" min="0" value="{{ old('cost_price', $product->cost_price ?? 0) }}" required
-                                    class="form-control @error('cost_price') is-invalid @enderror">
-                                @error('cost_price') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="pf-label" for="category_id">Category <span class="text-danger">*</span></label>
+                                <select name="category_id" id="category_id" required class="form-select @error('category_id') is-invalid @enderror">
+                                    @foreach ($categories as $category)
+                                        <option value="{{ $category->id }}" data-free="{{ $category->is_free ? 1 : 0 }}" @selected(old('category_id', $product->category_id) == $category->id)>
+                                            {{ $category->name }}{{ $category->is_free ? ' — complimentary' : '' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('category_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
-                            <div class="form-text" style="font-size: .72rem;">Base procurement/manufacturing cost. Set 0 for free complimentary benefits.</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-medium">Sell / Retail Price (₹) <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light">₹</span>
-                                <input name="sell_price" id="sell_price" type="number" step="0.01" min="0" value="{{ old('sell_price', $product->sell_price ?? 0) }}" required
-                                    class="form-control @error('sell_price') is-invalid @enderror">
-                                @error('sell_price') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-                            <div class="form-text" style="font-size: .72rem;">Taxable base value used for plan bundling &amp; MRP proportioning.</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-medium">Product GST Rate (%)</label>
-                            <div class="input-group">
-                                <input name="gst_pct" id="gst_pct" type="number" step="0.01" min="0" max="100"
-                                    value="{{ old('gst_pct', $product->gst_pct) }}"
-                                    placeholder="Default ({{ number_format(\App\Support\Gst::pct(), 2) }}%)"
-                                    class="form-control font-monospace @error('gst_pct') is-invalid @enderror">
-                                <span class="input-group-text bg-light">%</span>
-                                @error('gst_pct') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-                            <div class="form-text" style="font-size: .72rem;">Specific rate for this product. Blank = company default ({{ number_format(\App\Support\Gst::pct(), 2) }}%).</div>
-                        </div>
-
-                        {{-- Quick GST Slab Selector --}}
-                        <div class="col-12 pt-1">
-                            <label class="form-label text-secondary d-block mb-1" style="font-size: .75rem;"><i class="bi bi-tag me-1"></i>Quick Select Standard Indian GST Slab:</label>
-                            <div class="d-flex flex-wrap gap-2">
-                                <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 slab-btn" data-slab="0">0% (Exempt)</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 slab-btn" data-slab="5">5% (AYUSH / Meds)</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 slab-btn" data-slab="12">12% (Wellness / Health)</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 slab-btn" data-slab="18">18% (Supplements / FMCG)</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 slab-btn" data-slab="28">28% (Luxury)</button>
-                                <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 slab-btn" data-slab="">Use Company Default</button>
-                            </div>
-                        </div>
-
-                        {{-- Live Tax & Margin Preview Box --}}
-                        <div class="col-12 mt-2">
-                            <div class="p-3 rounded-2 bg-light border border-light-subtle">
-                                <div class="row g-2 align-items-center text-center text-md-start">
-                                    <div class="col-6 col-md-3">
-                                        <div class="text-secondary" style="font-size: .72rem;">Taxable Retail Base</div>
-                                        <div class="fw-bold" id="preview-base">₹{{ number_format($product->sell_price ?? 0, 2) }}</div>
-                                    </div>
-                                    <div class="col-6 col-md-3">
-                                        <div class="text-secondary" style="font-size: .72rem;">Effective GST (<span id="preview-rate">{{ number_format($product->gstPct(), 1) }}%</span>)</div>
-                                        <div class="fw-bold text-info-emphasis" id="preview-gst">₹{{ number_format(($product->sell_price ?? 0) * ($product->gstPct() / 100), 2) }}</div>
-                                    </div>
-                                    <div class="col-6 col-md-3">
-                                        <div class="text-secondary" style="font-size: .72rem;">Customer MRP (Incl. GST)</div>
-                                        <div class="fw-bold text-success" id="preview-total">₹{{ number_format(($product->sell_price ?? 0) * (1 + $product->gstPct() / 100), 2) }}</div>
-                                    </div>
-                                    <div class="col-6 col-md-3">
-                                        <div class="text-secondary" style="font-size: .72rem;">Gross Margin</div>
-                                        <div class="fw-bold text-primary" id="preview-margin">₹{{ number_format(max(0, ($product->sell_price ?? 0) - ($product->cost_price ?? 0)), 2) }}</div>
-                                    </div>
+                            <div class="col-md-6">
+                                <label class="pf-label" for="sku">SKU code <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+                                    <input name="sku" id="sku" value="{{ old('sku', $product->sku) }}" placeholder="e.g. SYR-001" required
+                                        class="form-control font-monospace @error('sku') is-invalid @enderror">
+                                    @error('sku') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                             </div>
+                            <div class="col-12">
+                                <label class="pf-label" for="name">Product name <span class="text-danger">*</span></label>
+                                <input name="name" id="name" value="{{ old('name', $product->name) }}" placeholder="Product or benefit name" required
+                                    class="form-control @error('name') is-invalid @enderror">
+                                @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="col-12">
+                                <label class="pf-label" for="description">Description <span class="text-secondary fw-normal">(optional)</span></label>
+                                <textarea name="description" id="description" rows="2" placeholder="Shown on plan and bundle views"
+                                    class="form-control @error('description') is-invalid @enderror">{{ old('description', $product->description) }}</textarea>
+                                @error('description') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
                         </div>
                     </div>
-                </fieldset>
+                </section>
 
-                {{-- 3. Benefit Metadata --}}
-                <fieldset class="border rounded-3 p-3 mb-4 bg-light bg-opacity-50">
-                    <legend class="float-none w-auto small fw-semibold text-secondary px-2 mb-0" style="font-size: .78rem;">
-                        3. Complimentary Benefit Metadata (Display Only)
-                    </legend>
-                    <div class="row g-3 mt-1">
-                        <div class="col-md-4">
-                            <label class="form-label small fw-medium">Benefit group</label>
-                            <input name="benefit_group" value="{{ old('benefit_group', $product->benefit_group) }}" placeholder="e.g. Everyday Discounts"
-                                class="form-control form-control-sm @error('benefit_group') is-invalid @enderror">
-                            @error('benefit_group') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-medium">Usage limit</label>
-                            <input name="usage_limit" type="number" min="1" value="{{ old('usage_limit', $product->usage_limit) }}" placeholder="e.g. 12"
-                                class="form-control form-control-sm @error('usage_limit') is-invalid @enderror">
-                            @error('usage_limit') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-medium">Usage period</label>
-                            <select name="usage_period" class="form-select form-select-sm @error('usage_period') is-invalid @enderror">
-                                <option value="">— Unlimited —</option>
-                                @foreach (['year', 'month', 'lifetime'] as $period)
-                                    <option value="{{ $period }}" @selected(old('usage_period', $product->usage_period) === $period)>{{ ucfirst($period) }}</option>
-                                @endforeach
-                            </select>
-                            @error('usage_period') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                {{-- 2. Pricing & GST --}}
+                <section class="card border pf-card">
+                    <div class="card-header">
+                        <div class="pf-chip warn"><i class="bi bi-receipt"></i></div>
+                        <div><h2>Price &amp; GST</h2><p class="sub">GST is added on top of the price, and is set for this product alone.</p></div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            @if ($finance)
+                                <div class="col-sm-6">
+                                    <label class="pf-label" for="cost_price">Cost price <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">₹</span>
+                                        <input name="cost_price" id="cost_price" type="number" step="0.01" min="0" value="{{ old('cost_price', $product->cost_price ?? 0) }}" required
+                                            class="form-control @error('cost_price') is-invalid @enderror">
+                                        @error('cost_price') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+                                    <div class="pf-hint">What this product costs you. Use 0 for free benefits.</div>
+                                </div>
+                            @endif
+                            <div class="col-sm-6">
+                                <label class="pf-label" for="sell_price">Retail price, excl. GST <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input name="sell_price" id="sell_price" type="number" step="0.01" min="0" value="{{ old('sell_price', $product->sell_price ?? 0) }}" required
+                                        class="form-control @error('sell_price') is-invalid @enderror">
+                                    @error('sell_price') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                </div>
+                                <div class="pf-hint">Used to share a plan's price between its products.</div>
+                            </div>
+
+                            @if ($finance)
+                                <div class="col-12">
+                                    <label class="pf-label" for="gst_pct">GST rate <span class="text-danger">*</span></label>
+                                    <div class="d-flex flex-wrap gap-2 mb-2" id="slabs">
+                                        @foreach ($slabs as [$pct, $label])
+                                            <button type="button" class="slab" data-slab="{{ $pct }}"><b>{{ $pct }}%</b><span>{{ $label }}</span></button>
+                                        @endforeach
+                                    </div>
+                                    <div class="input-group" style="max-width: 220px;">
+                                        <input name="gst_pct" id="gst_pct" type="number" step="0.01" min="0" max="100" value="{{ $rate }}" placeholder="Other rate" required
+                                            class="form-control font-monospace @error('gst_pct') is-invalid @enderror">
+                                        <span class="input-group-text">%</span>
+                                        @error('gst_pct') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+                                    <div class="pf-hint">Pick a standard slab or type any rate. Every product needs one — enter 0 if it is exempt.</div>
+                                    <div class="alert alert-warning py-2 px-3 small mt-2 mb-0 d-none" id="gstMissing"><i class="bi bi-exclamation-triangle me-1"></i>No GST rate set yet. Until you choose one, this product is taxed at 0%.</div>
+                                </div>
+                            @else
+                                <div class="col-12"><div class="pf-hint"><i class="bi bi-lock me-1"></i>Cost and GST are set by someone with Finance access.</div></div>
+                            @endif
                         </div>
                     </div>
-                </fieldset>
+                </section>
 
-                <div class="p-3 border rounded-3 bg-light mb-4">
-                    <div class="form-check form-switch mb-0">
-                        <input type="checkbox" name="is_active" value="1" class="form-check-input" id="is_active" @checked(old('is_active', $product->exists ? $product->is_active : true))>
-                        <label class="form-check-label fw-medium small" for="is_active">Active &amp; Available for Plan Bundles</label>
+                {{-- 3. Benefit info --}}
+                <section class="card border pf-card">
+                    <div class="card-header">
+                        <div class="pf-chip good"><i class="bi bi-gift"></i></div>
+                        <div><h2>Complimentary benefit details</h2><p class="sub">Optional. Only displayed to members; has no effect on money.</p></div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="pf-label" for="benefit_group">Benefit group</label>
+                                <input name="benefit_group" id="benefit_group" value="{{ old('benefit_group', $product->benefit_group) }}" placeholder="e.g. Everyday discounts"
+                                    class="form-control @error('benefit_group') is-invalid @enderror">
+                                @error('benefit_group') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="col-md-4">
+                                <label class="pf-label" for="usage_limit">Usage limit</label>
+                                <input name="usage_limit" id="usage_limit" type="number" min="1" value="{{ old('usage_limit', $product->usage_limit) }}" placeholder="e.g. 12"
+                                    class="form-control @error('usage_limit') is-invalid @enderror">
+                                @error('usage_limit') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="col-md-4">
+                                <label class="pf-label" for="usage_period">Per</label>
+                                <select name="usage_period" id="usage_period" class="form-select @error('usage_period') is-invalid @enderror">
+                                    <option value="">Unlimited</option>
+                                    @foreach (['year' => 'Year', 'month' => 'Month', 'lifetime' => 'Lifetime'] as $v => $l)
+                                        <option value="{{ $v }}" @selected(old('usage_period', $product->usage_period) === $v)>{{ $l }}</option>
+                                    @endforeach
+                                </select>
+                                @error('usage_period') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {{-- Active + save --}}
+                <section class="card border pf-card">
+                    <div class="card-body pt-3">
+                        <div class="form-check form-switch mb-0">
+                            <input type="checkbox" name="is_active" value="1" class="form-check-input" role="switch" id="is_active" @checked(old('is_active', $product->exists ? $product->is_active : true))>
+                            <label class="form-check-label fw-semibold" for="is_active">Active</label>
+                            <div class="pf-hint mt-0">Inactive products can't be added to new plans.</div>
+                        </div>
+                        <div class="save-bar mt-3">
+                            <button type="submit" class="btn btn-success px-4"><i class="bi bi-check-lg me-1"></i>{{ $product->exists ? 'Save changes' : 'Create product' }}</button>
+                            <a href="{{ route('admin.products.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            {{-- Live summary --}}
+            @if ($finance)
+                <div class="col-lg-4">
+                    <div class="card border pf-card sticky-top" style="top: 80px;">
+                        <div class="card-header">
+                            <div class="pf-chip good"><i class="bi bi-calculator"></i></div>
+                            <div><h2>What the customer sees</h2><p class="sub">Updates as you type.</p></div>
+                        </div>
+                        <div class="card-body">
+                            <div class="sum-row"><span>Retail price</span><span class="v" id="preview-base">₹0.00</span></div>
+                            <div class="sum-row"><span>GST (<span id="preview-rate">0%</span>)</span><span class="v" id="preview-gst">₹0.00</span></div>
+                            <div class="sum-total d-flex justify-content-between align-items-center">
+                                <span class="small fw-semibold">Customer pays</span><span class="v" id="preview-total">₹0.00</span>
+                            </div>
+                            <div class="sum-row mt-2"><span>Your margin <span class="text-secondary">(price − cost)</span></span><span class="v" id="preview-margin">₹0.00</span></div>
+                            <div class="pf-hint">GST goes to the government and is never part of your margin or the member pool.</div>
+                        </div>
                     </div>
                 </div>
-
-                <div class="d-flex align-items-center gap-2 pt-2 border-top">
-                    <button type="submit" class="btn btn-success px-4">
-                        <i class="bi bi-check-lg me-1"></i>Save Product
-                    </button>
-                    <a href="{{ route('admin.products.index') }}" class="btn btn-outline-secondary">Cancel</a>
-                </div>
-            </form>
+            @endif
         </div>
-    </div>
+    </form>
 
     @push('scripts')
         <script>
             document.addEventListener('DOMContentLoaded', function () {
-                const defaultGst = {{ \App\Support\Gst::pct() }};
-                const costInput = document.getElementById('cost_price');
-                const sellInput = document.getElementById('sell_price');
-                const gstInput = document.getElementById('gst_pct');
+                const $ = id => document.getElementById(id);
+                const cost = $('cost_price'), sell = $('sell_price'), gst = $('gst_pct'), cat = $('category_id');
+                const inr = n => '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-                const previewBase = document.getElementById('preview-base');
-                const previewRate = document.getElementById('preview-rate');
-                const previewGst = document.getElementById('preview-gst');
-                const previewTotal = document.getElementById('preview-total');
-                const previewMargin = document.getElementById('preview-margin');
-
-                function updatePreview() {
-                    const sell = parseFloat(sellInput?.value) || 0;
-                    const cost = parseFloat(costInput?.value) || 0;
-                    let rate = parseFloat(gstInput?.value);
-                    if (isNaN(rate) || gstInput?.value === '') {
-                        rate = defaultGst;
-                    }
-
-                    const gstAmt = (sell * rate) / 100;
-                    const total = sell + gstAmt;
-                    const margin = Math.max(0, sell - cost);
-
-                    if (previewBase) previewBase.textContent = '₹' + sell.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    if (previewRate) previewRate.textContent = rate.toFixed(1) + '%';
-                    if (previewGst) previewGst.textContent = '₹' + gstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    if (previewTotal) previewTotal.textContent = '₹' + total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    if (previewMargin) previewMargin.textContent = '₹' + margin.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                function refresh() {
+                    const s = parseFloat(sell?.value) || 0, c = parseFloat(cost?.value) || 0;
+                    const raw = gst?.value ?? '';
+                    const r = raw === '' ? 0 : (parseFloat(raw) || 0);
+                    const g = s * r / 100;
+                    const set = (id, t) => { const el = $(id); if (el) el.textContent = t; };
+                    set('preview-base', inr(s)); set('preview-rate', r.toString().replace(/\.0+$/, '') + '%');
+                    set('preview-gst', inr(g)); set('preview-total', inr(s + g)); set('preview-margin', inr(s - c));
+                    document.querySelectorAll('.slab').forEach(b => b.classList.toggle('on', raw !== '' && parseFloat(b.dataset.slab) === parseFloat(raw)));
+                    $('gstMissing')?.classList.toggle('d-none', raw !== '');
                 }
 
-                document.querySelectorAll('.slab-btn').forEach(btn => {
-                    btn.addEventListener('click', function () {
-                        const slab = this.dataset.slab;
-                        if (gstInput) {
-                            gstInput.value = slab;
-                            updatePreview();
-                        }
-                    });
+                document.querySelectorAll('.slab').forEach(b => b.addEventListener('click', () => { gst.value = b.dataset.slab; refresh(); }));
+                [cost, sell, gst].forEach(el => el?.addEventListener('input', refresh));
+
+                // A complimentary category is free, so start it at 0% / ₹0 when the admin hasn't entered anything yet.
+                cat?.addEventListener('change', () => {
+                    if (cat.selectedOptions[0]?.dataset.free === '1' && gst && gst.value === '') { gst.value = 0; refresh(); }
                 });
 
-                if (costInput) costInput.addEventListener('input', updatePreview);
-                if (sellInput) sellInput.addEventListener('input', updatePreview);
-                if (gstInput) gstInput.addEventListener('input', updatePreview);
-
-                updatePreview();
+                refresh();
             });
         </script>
     @endpush

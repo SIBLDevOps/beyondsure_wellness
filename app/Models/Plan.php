@@ -7,9 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+#[\Illuminate\Database\Eloquent\Attributes\ScopedBy([\App\Models\Scopes\AdminRegionScope::class])]
 class Plan extends Model
 {
-    protected $fillable = ['name', 'slug', 'description', 'price', 'bv', 'is_active'];
+    protected $fillable = ['name', 'slug', 'description', 'price', 'bv', 'is_active', 'region_id'];
+
+    protected static function booted(): void
+    {
+        static::creating(fn (Plan $p) => $p->region_id ??= Region::fallbackId());
+    }
+
+    public function region(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Region::class);
+    }
 
     protected function casts(): array
     {

@@ -31,6 +31,29 @@
             @error('email') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
         </div>
 
+        {{-- Region: fixed by the invite link / plan, or chosen here when more than one region is open --}}
+        @if (($regionFixed ?? false) && ($region ?? null))
+            <input type="hidden" name="region" value="{{ $region->code }}">
+            <p class="inline-flex items-center gap-1.5 rounded-full bg-sky-50 border border-sky-200 px-3 py-1 text-xs font-medium text-sky-700">
+                You are joining the <strong>{{ $region->name }}</strong> region
+            </p>
+        @elseif (($regions ?? collect())->count() > 1)
+            <div>
+                <label for="region" class="block text-sm font-medium text-slate-700">Region <span class="text-rose-500">*</span></label>
+                <select id="region" name="region" required
+                    class="mt-1 w-full rounded-lg border @error('region') border-red-500 @else border-slate-300 @enderror px-3.5 py-2.5 text-sm bg-white">
+                    <option value="">Choose your region</option>
+                    @foreach ($regions as $r)
+                        <option value="{{ $r->code }}" @selected(old('region', $region?->code) === $r->code)>{{ $r->name }}</option>
+                    @endforeach
+                </select>
+                <p class="text-xs text-slate-500 mt-1">Each region has its own network and plans. A mobile number can belong to one region only.</p>
+            </div>
+        @elseif ($region ?? null)
+            <input type="hidden" name="region" value="{{ $region->code }}">
+        @endif
+        @error('region') <p class="text-xs text-red-600 -mt-2">{{ $message }}</p> @enderror
+
         <div>
             <label for="sponsor_code" class="block text-sm font-medium text-slate-700">Sponsor code
                 @if ($sponsorRequired ?? false)
@@ -51,7 +74,7 @@
             @if ($sponsorRequired ?? false)
                 <p class="text-xs text-slate-500 mt-1">A sponsor code is required. Use the invite link your sponsor shared with you.</p>
             @else
-                <p class="text-xs text-slate-500 mt-1">Leave blank to register directly under company admin downline.</p>
+                <p class="text-xs text-slate-500 mt-1">Leave blank to register directly under the company in your region.</p>
             @endif
             @error('sponsor_code') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
         </div>

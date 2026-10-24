@@ -18,6 +18,13 @@ class OrderService
      */
     public function place(Member $member, Plan $plan): Order
     {
+        // A plan belongs to one region and can only be bought by that region's members.
+        if ($member->region_id !== $plan->region_id) {
+            throw new \DomainException('This plan is not available in your region.');
+        }
+        if (! $plan->region?->is_active) {
+            throw new \DomainException('Your region is not taking new orders right now.');
+        }
         $split = Gst::splitForPlan($plan, (float) $plan->price);
 
         // v2 §2B: New vs. Repurchase is a classification only — Self/Sponsor/Matching pay the

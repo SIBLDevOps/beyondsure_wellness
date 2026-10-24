@@ -3,15 +3,18 @@
 @section('title', 'Products')
 
 @section('content')
+    @php $finance = auth()->user()->canSeeFinance(); $canEdit = auth()->user()->canAccessRoute('admin.products.edit'); @endphp
     <div class="d-flex align-items-start justify-content-between gap-3 mb-4 flex-wrap">
         <p class="text-secondary mb-0" style="max-width: 620px;">
             Every item that can go into a plan bundle — physical products (cost &gt; 0) and free complimentary
             benefits (cost = 0). <strong>Cost price</strong> feeds the plan cost-cap check; benefit group and
             usage limit are display-only and never affect pricing or compensation.
         </p>
+        @if ($canEdit)
         <a href="{{ route('admin.products.create') }}" class="btn btn-success flex-shrink-0">
             <i class="bi bi-plus-lg me-1"></i>New product
         </a>
+        @endif
     </div>
 
     <div class="card border">
@@ -32,12 +35,18 @@
                         <th class="ps-3" data-sort-key="text">Product Name</th>
                         <th>SKU</th>
                         <th data-sort-key="text">Category</th>
+                        @if ($finance)
                         <th class="text-end" data-sort-key="number">Cost Price</th>
+                        @endif
                         <th class="text-end" data-sort-key="number">Sell Price</th>
+                        @if ($finance)
                         <th class="text-end" data-sort-key="number">GST</th>
+                        @endif
                         <th>Benefit Group &amp; Limit</th>
                         <th class="text-center" data-sort-key="text">Status</th>
+                        @if ($canEdit)
                         <th class="text-end pe-3">Actions</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -55,8 +64,11 @@
                                     {{ $product->category->name }}
                                 </span>
                             </td>
+                            @if ($finance)
                             <td class="text-end" data-sort-value="{{ $product->cost_price }}">₹{{ number_format($product->cost_price, 2) }}</td>
+                            @endif
                             <td class="text-end fw-medium" data-sort-value="{{ $product->sell_price }}">₹{{ number_format($product->sell_price, 2) }}</td>
+                            @if ($finance)
                             <td class="text-end" data-sort-value="{{ $product->gstPct() }}">
                                 @if ($product->gst_pct !== null)
                                     @if ((float)$product->gst_pct === 0.0)
@@ -65,10 +77,11 @@
                                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace fw-semibold">{{ number_format($product->gst_pct, 1) }}% GST</span>
                                     @endif
                                 @else
-                                    <span class="badge bg-light text-secondary border font-monospace">{{ number_format($product->gstPct(), 1) }}%</span>
-                                    <span class="text-body-tertiary d-block" style="font-size: .68rem;">(company default)</span>
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">GST not set</span>
+                                    <span class="text-body-tertiary d-block" style="font-size: .68rem;">(counted as 0% — edit to set)</span>
                                 @endif
                             </td>
+                            @endif
                             <td class="small">
                                 @if ($product->benefit_group || $product->usageLimitLabel())
                                     <div class="text-dark">{{ $product->benefit_group ?? 'General Benefit' }}</div>
@@ -82,11 +95,13 @@
                                     {{ $product->is_active ? 'Active' : 'Inactive' }}
                                 </span>
                             </td>
+                            @if ($canEdit)
                             <td class="text-end pe-3">
                                 <a href="{{ route('admin.products.edit', $product) }}" class="btn btn-sm btn-outline-primary">
                                     <i class="bi bi-pencil me-1"></i>Edit
                                 </a>
                             </td>
+                            @endif
                         </tr>
                     @empty
                         <tr><td colspan="9" class="text-center text-body-tertiary py-5">No products yet.</td></tr>

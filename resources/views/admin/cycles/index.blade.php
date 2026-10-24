@@ -3,6 +3,8 @@
 @section('title', 'Cycles')
 
 @section('content')
+    @php $finance = auth()->user()->canSeeFinance(); @endphp
+    @include('admin.partials.flow', ['current' => 'cycles'])
     <p class="text-secondary mb-3" style="max-width: 680px;">
         A cycle is the moment compensation actually gets calculated and posted to member wallets. The period
         dates are just a label for your records — approving settles <strong>every</strong> currently-paid,
@@ -61,9 +63,7 @@
                 <span class="badge bg-info-subtle text-info-emphasis px-3 py-2">
                     <strong>{{ $unsettledCount }}</strong> Paid Order(s) Waiting
                 </span>
-                <span class="badge bg-primary-subtle text-primary px-3 py-2">
-                    Unsettled Pool: <strong>₹{{ number_format($unsettledBv, 0) }} BV</strong>
-                </span>
+                <span class="badge bg-primary-subtle text-primary px-3 py-2">@if ($finance)Unsettled Pool: <strong>₹{{ number_format($unsettledBv, 0) }} BV</strong>@else Pending settlement @endif</span>
             </div>
         </div>
         <div class="card-body">
@@ -108,9 +108,11 @@
                     <tr>
                         <th class="ps-3">Cycle Period</th>
                         <th class="text-center">Status</th>
+                        @if ($finance)
                         <th class="text-end" data-sort-key="number">Pool BV</th>
                         <th class="text-end" data-sort-key="number">Total Paid Out</th>
                         <th class="text-end" data-sort-key="number">Paid % of BV</th>
+                        @endif
                         <th>Approved At</th>
                         <th class="text-end pe-3">Action</th>
                     </tr>
@@ -129,6 +131,7 @@
                                     {{ $cycle->status }}
                                 </span>
                             </td>
+                            @if ($finance)
                             <td class="text-end fw-medium" data-sort-value="{{ $cycle->pool_bv }}">₹{{ number_format($cycle->pool_bv, 0) }}</td>
                             <td class="text-end fw-bold text-primary" data-sort-value="{{ $cycle->total_paid }}">₹{{ number_format($cycle->total_paid, 0) }}</td>
                             <td class="text-end" data-sort-value="{{ $paidPct ?? 0 }}">
@@ -140,6 +143,7 @@
                                     <span class="text-body-tertiary">—</span>
                                 @endif
                             </td>
+                            @endif
                             <td class="text-body-tertiary small">{{ $cycle->approved_at?->format('d M Y H:i') ?? '—' }}</td>
                             <td class="text-end pe-3">
                                 @if (! $cycle->isApproved())

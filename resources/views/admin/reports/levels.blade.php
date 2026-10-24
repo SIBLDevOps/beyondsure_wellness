@@ -113,7 +113,7 @@
                         <div class="stat-icon bg-dark-subtle text-dark" style="width:32px;height:32px;font-size:.9rem;"><i class="bi bi-layers"></i></div>
                     </div>
                     <div class="fs-4 fw-bold text-dark">{{ $data['rates']['cascade_depth'] }} Levels</div>
-                    <div class="text-body-tertiary small mt-1" style="font-size: .72rem;">Max {{ $data['rates']['max_cascade_pct'] }}% BV payout · {{ $data['summary']['effective_matching_rate'] }}% effective rate</div>
+                    <div class="text-body-tertiary small mt-1" style="font-size: .72rem;">Levels add up to {{ $data['rates']['max_cascade_pct'] }}% of matched BV · actual matching paid so far: {{ $data['summary']['effective_matching_rate'] }}% of BV</div>
                 </div>
             </div>
         </div>
@@ -121,21 +121,36 @@
 
     {{-- Main Analyst Analysis Container (Tabs) --}}
     <div class="card border mb-4 shadow-sm">
-        <div class="card-header bg-light-subtle border-bottom pt-2 pb-0">
-            <ul class="nav nav-tabs card-header-tabs" id="analysisTabs" role="tablist">
+        <style>
+            .view-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+            .view-tabs .nav-link { border: 1.5px solid var(--bs-border-color); border-radius: .8rem; background: var(--bs-body-bg); color: var(--bs-body-color); text-align: left; padding: .65rem .9rem; display: flex; gap: .7rem; align-items: center; transition: .12s; }
+            .view-tabs .nav-link:hover { border-color: var(--bs-primary); }
+            .view-tabs .nav-link .ic { width: 2.1rem; height: 2.1rem; border-radius: .6rem; display: grid; place-items: center; flex: none; background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); }
+            .view-tabs .nav-link b { display: block; font-size: .88rem; line-height: 1.2; }
+            .view-tabs .nav-link small { display: block; color: var(--bs-secondary-color); font-size: .72rem; line-height: 1.25; margin-top: .1rem; }
+            .view-tabs .nav-link.active { border-color: var(--bs-primary); background: var(--bs-primary-bg-subtle); box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb), .14); color: var(--bs-body-color); }
+            .view-tabs .nav-link.active .ic { background: var(--bs-primary); color: #fff; }
+            @media (max-width: 767.98px) { .view-tabs { grid-template-columns: 1fr; } }
+        </style>
+        <div class="card-header bg-transparent border-bottom p-3">
+            <div class="small fw-semibold text-secondary mb-2">Choose a view</div>
+            <ul class="nav view-tabs" id="analysisTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active fw-medium" id="level-wise-tab" data-bs-toggle="tab" data-bs-target="#level-wise-pane" type="button" role="tab">
-                        <i class="bi bi-bar-chart-steps me-1"></i>Level-wise Matrix
+                    <button class="nav-link active w-100" id="level-wise-tab" data-bs-toggle="tab" data-bs-target="#level-wise-pane" type="button" role="tab">
+                        <span class="ic"><i class="bi bi-bar-chart-steps"></i></span>
+                        <span><b>Level-wise</b><small>Income paid at each level</small></span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link fw-medium" id="user-wise-tab" data-bs-toggle="tab" data-bs-target="#user-wise-pane" type="button" role="tab">
-                        <i class="bi bi-people me-1"></i>User-wise Earners Ledger
+                    <button class="nav-link w-100" id="user-wise-tab" data-bs-toggle="tab" data-bs-target="#user-wise-pane" type="button" role="tab">
+                        <span class="ic"><i class="bi bi-people"></i></span>
+                        <span><b>User-wise</b><small>What each member earned</small></span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link fw-medium" id="plan-matrix-tab" data-bs-toggle="tab" data-bs-target="#plan-matrix-pane" type="button" role="tab">
-                        <i class="bi bi-table me-1"></i>Plan Payout Matrix
+                    <button class="nav-link w-100" id="plan-matrix-tab" data-bs-toggle="tab" data-bs-target="#plan-matrix-pane" type="button" role="tab">
+                        <span class="ic"><i class="bi bi-table"></i></span>
+                        <span><b>Plan-wise</b><small>Payout per plan, if fully matched</small></span>
                     </button>
                 </li>
             </ul>
@@ -187,7 +202,7 @@
                                             <div class="fw-semibold text-dark">{{ $row['label'] }}</div>
                                             <div class="text-body-tertiary small" style="font-size: .72rem;">
                                                 @if ($row['level'] === 1)
-                                                    Level 1 (Direct Referral &amp; 1st Match)
+                                                    Personal sponsor income, plus the member's own first match
                                                 @else
                                                     Generation {{ $row['level'] }} binary placement ancestor
                                                 @endif

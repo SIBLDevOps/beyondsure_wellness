@@ -21,9 +21,14 @@ trait RedirectsAfterMemberAuth
         $plan = $planId ? Plan::where('id', $planId)->where('is_active', true)->first() : null;
 
         if ($plan) {
-            $order = app(OrderService::class)->place($member, $plan);
+            try {
+                $order = app(OrderService::class)->place($member, $plan);
 
-            return redirect()->route('member.orders.pay', $order);
+                return redirect()->route('member.orders.pay', $order);
+            } catch (\DomainException $e) {
+                // The plan they picked belongs to another region: take them to their own region's plans.
+                return redirect()->route('member.plans.index')->withErrors(['plan' => $e->getMessage()]);
+            }
         }
 
         return redirect()->route('member.dashboard');

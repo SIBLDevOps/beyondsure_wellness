@@ -3,6 +3,7 @@
 @section('title', 'Dispatch batches')
 
 @section('content')
+    @include('admin.partials.flow', ['current' => 'dispatch'])
     <p class="text-secondary mb-3" style="max-width: 680px;">
         A batch groups approved withdrawals to pay out together on a chosen date, instead of clicking "mark
         paid" one at a time. Nothing is paid until you explicitly <strong>release</strong> a batch — that's

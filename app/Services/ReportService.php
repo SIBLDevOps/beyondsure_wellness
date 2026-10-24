@@ -21,6 +21,73 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportService
 {
+    /** When set, every figure covers this one region only (its members, orders, plans and income). */
+    private ?int $regionId = null;
+
+    public function forRegion(?int $regionId): static
+    {
+        $this->regionId = $regionId ?: null;
+
+        return $this;
+    }
+
+    private function inRegion(Builder $q, string $via): Builder
+    {
+        return $q->when($this->regionId, fn (Builder $q) => $q->whereHas($via, fn (Builder $m) => $m->where('region_id', $this->regionId)));
+    }
+
+    private function orders(): Builder
+    {
+        return $this->inRegion(Order::query(), 'member');
+    }
+
+    private function ledger(): Builder
+    {
+        return $this->inRegion(LedgerEntry::query(), 'member');
+    }
+
+    private function payments(): Builder
+    {
+        return $this->inRegion(Payment::query(), 'order.member');
+    }
+
+    private function withdrawals(): Builder
+    {
+        return $this->inRegion(Withdrawal::query(), 'member');
+    }
+
+    private function plans(): Builder
+    {
+        return Plan::query()->when($this->regionId, fn (Builder $q) => $q->where('region_id', $this->regionId));
+    }
+
+    /**
+     * One row per region for the same date range: who joined, what was sold and what was paid out.
+     * Always unfiltered, so it can sit beside the region picker as the "compare regions" view.
+     */
+    public function regionBreakdown(Carbon $from, Carbon $to): Collection
+    {
+        return \App\Models\Region::orderBy('sort_order')->get()->map(function (\App\Models\Region $r) use ($from, $to) {
+            $scoped = (new self)->forRegion($r->id);
+            $orders = $scoped->orders()->whereBetween('created_at', [$from, $to])->whereIn('status', ['paid', 'settled']);
+            $revenue = (float) (clone $orders)->sum('amount');
+            $taxable = (float) (clone $orders)->sum('taxable_amount');
+            $paidOut = (float) $scoped->ledger()->whereBetween('created_at', [$from, $to])->where('amount', '>', 0)->sum('amount');
+
+            return [
+                'region' => $r,
+                'members' => $r->members()->count(),
+                'new_members' => $r->members()->whereBetween('created_at', [$from, $to])->count(),
+                'orders' => (clone $orders)->count(),
+                'revenue' => $revenue,
+                'taxable' => $taxable,
+                'bv' => (float) (clone $orders)->sum('bv'),
+                'paid_out' => $paidOut,
+                'payout_pct' => $taxable > 0 ? round($paidOut / $taxable * 100, 1) : 0,
+            ];
+        });
+    }
+
     /**
      * Paginate any in-memory collection cleanly with preserved query string.
      */
@@ -62,11 +129,11 @@ class ReportService
 
     public function businessOverview(Carbon $from, Carbon $to): array
     {
-        $orders = Order::whereBetween('created_at', [$from, $to])->whereIn('status', ['paid', 'settled'])->with('plan.products')->get();
+        $orders = $this->orders()->whereBetween('created_at', [$from, $to])->whereIn('status', ['paid', 'settled'])->with('plan.products')->get();
         $revenue = (float) $orders->sum('amount');
         $bv = (float) $orders->sum('bv');
-        $paidOut = (float) LedgerEntry::whereBetween('created_at', [$from, $to])->where('amount', '>', 0)->sum('amount');
-        $matchingPaid = (float) LedgerEntry::whereBetween('created_at', [$from, $to])->where('type', 'matching')->where('amount', '>', 0)->sum('amount');
+        $paidOut = (float) $this->ledger()->whereBetween('created_at', [$from, $to])->where('amount', '>', 0)->sum('amount');
+        $matchingPaid = (float) $this->ledger()->whereBetween('created_at', [$from, $to])->where('type', 'matching')->where('amount', '>', 0)->sum('amount');
         $breakerPct = (float) Setting::get('circuit_breaker_pct', 60);
 
         $costPct = (float) Setting::get('split_cost_pct', 40);
@@ -87,7 +154,7 @@ class ReportService
         $repurchaseRatio = $revenue > 0 ? round($repurchaseRevenue / $revenue * 100, 2) : 0;
 
         $monthSql = $this->dateFormatMonth('created_at');
-        $trend = Order::whereIn('status', ['paid', 'settled'])
+        $trend = $this->orders()->whereIn('status', ['paid', 'settled'])
             ->whereBetween('created_at', [now()->subMonths(5)->startOfMonth(), now()->endOfMonth()])
             ->selectRaw("{$monthSql} as month, COUNT(*) as orders, SUM(amount) as revenue, SUM(bv) as bv")
             ->groupBy('month')->orderBy('month')->get();
@@ -139,7 +206,7 @@ class ReportService
 
     public function salesAndProducts(Carbon $from, Carbon $to): array
     {
-        $byPlan = Order::whereBetween('created_at', [$from, $to])
+        $byPlan = $this->orders()->whereBetween('created_at', [$from, $to])
             ->whereIn('status', ['paid', 'settled'])
             ->selectRaw('plan_id, COUNT(*) as orders, SUM(amount) as revenue, SUM(bv) as bv,
                 SUM(COALESCE(taxable_amount, amount)) as taxable_value,
@@ -164,7 +231,7 @@ class ReportService
         $byPlanAll = $byPlan;
         $byPlanPaginated = $this->paginateCollection($byPlanAll, 10, 'plans_page');
 
-        $topBuyersQuery = Order::whereBetween('created_at', [$from, $to])
+        $topBuyersQuery = $this->orders()->whereBetween('created_at', [$from, $to])
             ->whereIn('status', ['paid', 'settled'])
             ->selectRaw('member_id, COUNT(*) as orders, SUM(amount) as total_spent')
             ->groupBy('member_id')->orderByDesc('total_spent')->with('member');
@@ -204,7 +271,7 @@ class ReportService
 
     private function memberPurchasesQuery(Carbon $from, Carbon $to): Builder
     {
-        return Order::whereBetween('created_at', [$from, $to])
+        return $this->orders()->whereBetween('created_at', [$from, $to])
             ->whereIn('status', ['paid', 'settled'])
             ->with(['member', 'plan.products'])
             ->orderByDesc('created_at');
@@ -228,7 +295,7 @@ class ReportService
 
     public function repurchaseReport(Carbon $from, Carbon $to): array
     {
-        $allOrdersInRange = Order::whereBetween('created_at', [$from, $to])
+        $allOrdersInRange = $this->orders()->whereBetween('created_at', [$from, $to])
             ->whereIn('status', ['paid', 'settled'])
             ->get();
 
@@ -236,7 +303,7 @@ class ReportService
         $totalOrdersCount = $allOrdersInRange->count();
 
         // Repurchase orders in this range
-        $repurchaseQuery = Order::whereBetween('created_at', [$from, $to])
+        $repurchaseQuery = $this->orders()->whereBetween('created_at', [$from, $to])
             ->whereIn('status', ['paid', 'settled'])
             ->where('is_repurchase', true);
 
@@ -258,7 +325,7 @@ class ReportService
         // Top repeat buyers
         $buyersGrouped = $repurchaseOrdersAll->groupBy('member_id')->map(function (Collection $orders, $memberId) {
             $member = $orders->first()?->member;
-            $firstOrder = Order::where('member_id', $memberId)->whereIn('status', ['paid', 'settled'])->oldest('created_at')->first();
+            $firstOrder = $this->orders()->where('member_id', $memberId)->whereIn('status', ['paid', 'settled'])->oldest('created_at')->first();
 
             return (object) [
                 'member' => $member,
@@ -315,12 +382,12 @@ class ReportService
         $cycles = (clone $cyclesQuery)->paginate(10, pageName: 'cycles_page')->withQueryString();
         $cyclesAll = (clone $cyclesQuery)->get();
 
-        $byType = LedgerEntry::whereBetween('created_at', [$from, $to])
+        $byType = $this->ledger()->whereBetween('created_at', [$from, $to])
             ->where('amount', '>', 0)
             ->selectRaw('type, SUM(amount) as total, COUNT(*) as entries')
             ->groupBy('type')->get();
 
-        $earningsByMemberQuery = LedgerEntry::whereBetween('created_at', [$from, $to])
+        $earningsByMemberQuery = $this->ledger()->whereBetween('created_at', [$from, $to])
             ->where('amount', '>', 0)
             ->selectRaw('member_id, SUM(amount) as total')
             ->groupBy('member_id')->orderByDesc('total');
@@ -335,7 +402,7 @@ class ReportService
             ? round($allEarnings->take($top10Count)->sum('total') / $totalEarned * 100, 2)
             : 0;
 
-        $walletLiability = (float) LedgerEntry::sum('amount');
+        $walletLiability = (float) $this->ledger()->sum('amount');
 
         return [
             'cycles' => $cycles,
@@ -350,7 +417,7 @@ class ReportService
 
     public function pendingAndCash(): array
     {
-        $pendingPaymentsQuery = Payment::where('status', 'pending')->with('order.member')->latest();
+        $pendingPaymentsQuery = $this->payments()->where('status', 'pending')->with('order.member')->latest();
         $allPendingPayments = (clone $pendingPaymentsQuery)->get();
         $pendingPayments = (clone $pendingPaymentsQuery)->paginate(15, pageName: 'payments_page')->withQueryString();
 
@@ -364,13 +431,13 @@ class ReportService
             };
         })->map->count();
 
-        $withdrawalsQuery = Withdrawal::where('status', 'approved')
+        $withdrawalsQuery = $this->withdrawals()->where('status', 'approved')
             ->whereDoesntHave('batches', fn ($q) => $q->where('status', 'draft'))
             ->with('member')->latest();
         $withdrawalsAwaitingDispatchAll = (clone $withdrawalsQuery)->get();
         $withdrawalsAwaitingDispatch = (clone $withdrawalsQuery)->paginate(15, pageName: 'withdrawals_page')->withQueryString();
 
-        $unsettledOrdersQuery = Order::where('status', 'paid')->whereNull('cycle_id')->with('member', 'plan')->latest();
+        $unsettledOrdersQuery = $this->orders()->where('status', 'paid')->whereNull('cycle_id')->with('member', 'plan')->latest();
         $unsettledOrdersAll = (clone $unsettledOrdersQuery)->get();
         $unsettledOrders = (clone $unsettledOrdersQuery)->paginate(15, pageName: 'unsettled_page')->withQueryString();
 
@@ -388,7 +455,7 @@ class ReportService
     public function complianceSummary(Carbon $from, Carbon $to): array
     {
         $monthSql = $this->dateFormatMonth('created_at');
-        $byMonth = LedgerEntry::whereBetween('created_at', [$from, $to])
+        $byMonth = $this->ledger()->whereBetween('created_at', [$from, $to])
             ->selectRaw("{$monthSql} as month, SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as distributed, SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END) as withdrawn")
             ->groupBy('month')->orderBy('month')->get();
 
@@ -398,7 +465,7 @@ class ReportService
         $overpaidCycles = (clone $overpaidQuery)->paginate(10, pageName: 'overpaid_page')->withQueryString();
         $overpaidCyclesAll = (clone $overpaidQuery)->get();
 
-        $costCapBreachesAll = Plan::with('products')->get()->filter(function (Plan $plan) {
+        $costCapBreachesAll = $this->plans()->with('products')->get()->filter(function (Plan $plan) {
             $costPct = (float) Setting::get('split_cost_pct', 40);
             $costTarget = (float) $plan->price * $costPct / 100;
 
@@ -431,10 +498,10 @@ class ReportService
         $monthlyCap = (float) Setting::get('match_cap_per_cycle', 600000);
         $weeklyCap = (float) Setting::get('match_cap_per_week', 150000);
         $breakerPct = (float) Setting::get('circuit_breaker_pct', 60);
-        $totalBv = (float) Order::whereBetween('created_at', [$from, $to])->whereIn('status', ['paid', 'settled'])->sum('bv');
+        $totalBv = (float) $this->orders()->whereBetween('created_at', [$from, $to])->whereIn('status', ['paid', 'settled'])->sum('bv');
 
         // Simulation for active plans
-        $plans = Plan::where('is_active', true)->orderBy('price')->get()->map(function (Plan $plan) use ($levelPcts, $selfPct, $sponsorPct) {
+        $plans = $this->plans()->where('is_active', true)->orderBy('price')->get()->map(function (Plan $plan) use ($levelPcts, $selfPct, $sponsorPct) {
             $selfAmt = round($plan->bv * ($selfPct / 100), 2);
             $sponsorAmt = round($plan->bv * ($sponsorPct / 100), 2);
 
@@ -460,7 +527,7 @@ class ReportService
         });
 
         // Actual distributed entries in date range
-        $allEntries = LedgerEntry::whereBetween('created_at', [$from, $to])
+        $allEntries = $this->ledger()->whereBetween('created_at', [$from, $to])
             ->where('amount', '>', 0)
             ->with(['member', 'sourceMember'])
             ->get();
@@ -605,7 +672,7 @@ class ReportService
 
     private function memberIncomeBreakdownQuery(Carbon $from, Carbon $to): Builder
     {
-        return LedgerEntry::whereBetween('created_at', [$from, $to])
+        return $this->ledger()->whereBetween('created_at', [$from, $to])
             ->where('amount', '>', 0)
             ->selectRaw('member_id,
                 SUM(CASE WHEN type = "self" THEN amount ELSE 0 END) as self_income,

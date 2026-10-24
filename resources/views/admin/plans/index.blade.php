@@ -16,6 +16,8 @@
         </div>
     </div>
 
+    @include('admin.partials.region-filter')
+
     {{-- 1. Plans Comparison & Compensation Matrix Table --}}
     <div class="card border mb-4">
         <div class="card-header bg-light-subtle border-bottom py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -55,7 +57,7 @@
                         @endphp
                         <tr>
                             <td class="ps-3">
-                                <div class="fw-semibold">{{ $plan->name }}</div>
+                                <div class="fw-semibold">{{ $plan->name }} <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle fw-normal"><i class="bi bi-geo-alt me-1"></i>{{ $plan->region?->name }}</span></div>
                                 <div class="text-body-tertiary text-truncate" style="font-size: .72rem; max-width: 200px;">
                                     {{ $plan->products->count() }} {{ Str::plural('item', $plan->products->count()) }}
                                 </div>

@@ -13,6 +13,8 @@ use App\Http\Controllers\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\GuideController;
+use App\Http\Controllers\Admin\RegionController;
 use App\Http\Controllers\Admin\TeamController;
 use App\Http\Controllers\Admin\SiteContentController;
 use App\Http\Controllers\Admin\TestimonialController as AdminTestimonialController;
@@ -126,6 +128,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
         Route::put('settings/ranks', [SettingsController::class, 'updateRanks'])->name('settings.ranks');
 
+        Route::get('guide', [GuideController::class, 'index'])->name('guide.index');
+
+        Route::resource('regions', RegionController::class)->except('show', 'destroy')
+            ->parameters(['regions' => 'region']);
+
+        Route::put('team/{user}/password',[TeamController::class, 'resetPassword'])->name('team.password');
         Route::resource('team', TeamController::class)->except('show')->parameters(['team' => 'user']);
 
         Route::get('site-content', [SiteContentController::class, 'edit'])->name('site-content.edit');

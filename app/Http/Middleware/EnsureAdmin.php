@@ -27,6 +27,18 @@ class EnsureAdmin
             abort(403, 'You do not have access to this section. Ask your Super Admin to grant it.');
         }
 
+        // A cycle settles every region at once and a batch pays members from every region, so someone
+        // limited to some regions must not run them (they can still view them).
+        if ($route && $user->isRegionRestricted() && in_array($route, self::ALL_REGION_ACTIONS, true)) {
+            abort(403, 'This action affects every region, so it is limited to people with access to all regions.');
+        }
+
         return $next($request);
     }
+
+    private const ALL_REGION_ACTIONS = [
+        'admin.cycles.store', 'admin.cycles.approve',
+        'admin.dispatch.store', 'admin.dispatch.release',
+        'admin.regions.create', 'admin.regions.store',
+    ];
 }

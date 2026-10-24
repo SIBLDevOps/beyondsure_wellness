@@ -66,6 +66,13 @@
         padding-left: 0;
         white-space: nowrap;
     }
+    /* A branch's children sit on their own row BELOW the card; as inline-flex they wrapped up beside it. */
+    .genealogy-tree ul {
+        display: flex;
+    }
+    .genealogy-node .min-w-0 {
+        min-width: 0;
+    }
     .genealogy-tree > .genealogy-branch {
         padding-top: 0;
     }

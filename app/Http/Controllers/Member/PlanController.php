@@ -15,12 +15,21 @@ class PlanController extends Controller
 
     public function index(): View
     {
-        return view('member.plans', ['plans' => Plan::where('is_active', true)->with('products')->orderBy('price')->get()]);
+        $member = Auth::guard('member')->user();
+
+        return view('member.plans', [
+            'plans' => Plan::where('is_active', true)->where('region_id', $member->region_id)->with('products')->orderBy('price')->get(),
+            'region' => $member->region,
+        ]);
     }
 
     public function buy(Plan $plan): RedirectResponse
     {
-        $order = $this->orders->place(Auth::guard('member')->user(), $plan);
+        try {
+            $order = $this->orders->place(Auth::guard('member')->user(), $plan);
+        } catch (\DomainException $e) {
+            return redirect()->route('member.plans.index')->withErrors(['plan' => $e->getMessage()]);
+        }
 
         return redirect()->route('member.orders.pay', $order)->with('status', 'Order placed — submit your payment to continue.');
     }

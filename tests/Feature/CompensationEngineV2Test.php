@@ -53,7 +53,7 @@ class CompensationEngineV2Test extends TestCase
         $category = Category::create(['name' => 'Wellness', 'slug' => 'wellness', 'is_free' => false]);
         $this->product = Product::create([
             'category_id' => $category->id, 'name' => 'Syrup', 'sku' => 'SYR-1',
-            'cost_price' => 100, 'sell_price' => 1000, 'is_active' => true,
+            'cost_price' => 100, 'sell_price' => 1000, 'gst_pct' => 12, 'is_active' => true,
         ]);
 
         $this->plan = Plan::create([
@@ -102,10 +102,27 @@ class CompensationEngineV2Test extends TestCase
         $this->assertSame(10500.0, $split['total']);
     }
 
-    public function test_a_products_null_gst_pct_falls_back_to_the_company_default(): void
+    public function test_there_is_no_company_wide_gst_rate_a_product_without_one_counts_as_zero(): void
     {
-        $this->assertNull($this->product->gst_pct);
-        $this->assertSame(12.0, $this->product->gstPct());
+        Setting::set('gst_pct', 18); // a leftover global setting must be ignored
+        $this->product->update(['gst_pct' => null]);
+
+        $this->assertSame(0.0, $this->product->fresh()->gstPct());
+        $this->assertSame(0.0, Gst::splitForPlan($this->plan->fresh(['products']), 10000)['gst']);
+    }
+
+    public function test_each_product_in_a_bundle_uses_its_own_rate(): void
+    {
+        $second = Product::create([
+            'category_id' => $this->product->category_id, 'name' => 'Capsule', 'sku' => 'CAP-1',
+            'cost_price' => 100, 'sell_price' => 1000, 'gst_pct' => 18, 'is_active' => true,
+        ]);
+        $this->plan->products()->attach($second->id, ['qty' => 1]);
+
+        // Equal retail weights: half the base at 12%, half at 18% = 600 + 900.
+        $split = Gst::splitForPlan($this->plan->fresh(['products']), 10000);
+
+        $this->assertSame(1500.0, $split['gst']);
     }
 
     public function test_order_snapshots_its_tax_breakdown_at_creation_and_never_recomputes_it(): void

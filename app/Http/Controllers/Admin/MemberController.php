@@ -21,7 +21,8 @@ class MemberController extends Controller
         $nowYear = now()->year;
 
         $members = Member::query()
-            ->with(['sponsor', 'placementParent', 'legTotal'])
+            ->with(['sponsor', 'placementParent', 'legTotal', 'region'])
+            ->when($request->region, fn ($q, $r) => $q->where('region_id', (int) $r))
             ->withCount('sponsoredMembers')
             ->withCount(['orders as paid_orders_count' => fn ($q) => $q->whereIn('status', ['paid', 'settled'])])
             ->withSum(['orders as personal_bv' => fn ($q) => $q->whereIn('status', ['paid', 'settled'])], 'bv')
@@ -46,6 +47,22 @@ class MemberController extends Controller
                 ->whereIn('status', ['paid', 'settled'])
                 ->whereMonth('created_at', $nowMonth)
                 ->whereYear('created_at', $nowYear)))
+            ->when($request->onboarding, function ($q, $stage) {
+                $noBank = fn ($b) => $b->whereNull('bank_account_number')->orWhere('bank_account_number', '')
+                    ->orWhereNull('bank_ifsc')->orWhere('bank_ifsc', '')
+                    ->orWhereNull('bank_account_name')->orWhere('bank_account_name', '');
+                $noPurchase = fn ($b) => $b->whereDoesntHave('orders', fn ($oq) => $oq->whereIn('status', ['paid', 'settled']));
+
+                match ($stage) {
+                    'no_purchase' => $q->where($noPurchase),
+                    'no_bank' => $q->where($noBank),
+                    // Not finished: any step open (no plan, no bank, no direct, or no income yet).
+                    'needs_help' => $q->where(fn ($w) => $w->where($noPurchase)->orWhere($noBank)
+                        ->orWhereDoesntHave('sponsoredMembers')
+                        ->orWhereDoesntHave('ledgerEntries', fn ($l) => $l->where('amount', '>', 0))),
+                    default => null,
+                };
+            })
             ->orderByDesc('id')
             ->paginate(25)
             ->withQueryString();
@@ -61,7 +78,9 @@ class MemberController extends Controller
             'ranked' => Member::whereNotNull('rank')->where('rank', '!=', 'none')->count(),
         ];
 
-        return view('admin.members.index', compact('members', 'stats'));
+        $regions = \App\Models\Region::orderBy('sort_order')->get();
+
+        return view('admin.members.index', compact('members', 'stats', 'regions'));
     }
 
     public function show(Member $member): View
@@ -84,6 +103,7 @@ class MemberController extends Controller
         $subtreeSize = $this->network->subtreeOf($member, includeRoot: false)->count();
 
         return view('admin.members.show', [
+            'onboarding' => app(\App\Services\OnboardingService::class)->progress($member),
             'member' => $member,
             'walletBalance' => $member->walletBalance(),
             'totalEarned' => $totalEarned,

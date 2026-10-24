@@ -108,11 +108,31 @@
                         <option value="inactive_month" @selected(request('activity') === 'inactive_month')>No Order This Month</option>
                     </select>
                 </div>
+                @if ($regions->count() > 1)
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small text-secondary mb-1">Region</label>
+                        <select name="region" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">All regions</option>
+                            @foreach ($regions as $r)
+                                <option value="{{ $r->id }}" @selected((string) request('region') === (string) $r->id)>{{ $r->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+                <div class="col-6 col-md-2">
+                    <label class="form-label small text-secondary mb-1">Getting started</label>
+                    <select name="onboarding" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">All Members</option>
+                        <option value="needs_help" @selected(request('onboarding') === 'needs_help')>Needs help (not finished)</option>
+                        <option value="no_purchase" @selected(request('onboarding') === 'no_purchase')>No plan bought yet</option>
+                        <option value="no_bank" @selected(request('onboarding') === 'no_bank')>No bank details</option>
+                    </select>
+                </div>
                 <div class="col-6 col-md-2 col-lg-3 d-flex gap-2 justify-content-md-end">
                     <button class="btn btn-sm btn-primary px-3" type="submit">
                         <i class="bi bi-funnel me-1"></i>Filter
                     </button>
-                    @if (request()->hasAny(['search', 'status', 'rank', 'activity']))
+                    @if (request()->hasAny(['search', 'status', 'rank', 'activity', 'onboarding', 'region']))
                         <a href="{{ route('admin.members.index') }}" class="btn btn-sm btn-outline-secondary">
                             Reset
                         </a>
@@ -183,8 +203,15 @@
                                         </a>
                                         <div class="d-flex align-items-center gap-2">
                                             <span class="font-monospace text-primary fw-medium" style="font-size: .75rem;">{{ $member->member_code }}</span>
+                                            @if ($regions->count() > 1)<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle fw-normal" style="font-size:.62rem;">{{ $member->region?->name }}</span>@endif
                                             <span class="text-body-tertiary" style="font-size: .7rem;">· {{ $member->created_at?->format('d M Y') }}</span>
                                         </div>
+                                        @php $ob = app(\App\Services\OnboardingService::class)->progress($member); @endphp
+                                        @unless ($ob['complete'])
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle mt-1" style="font-size: .65rem;" title="{{ $ob['next']['admin'] }}">
+                                                <i class="bi bi-rocket-takeoff me-1"></i>{{ $ob['done'] }}/{{ $ob['total'] }} · next: {{ $ob['next']['title'] }}
+                                            </span>
+                                        @endunless
                                     </div>
                                 </div>
                             </td>

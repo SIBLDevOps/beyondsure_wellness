@@ -31,6 +31,20 @@
                             </legend>
                             <div class="row g-3 mt-1">
                                 <div class="col-12">
+                                    <label class="form-label small fw-medium" for="region_id">Region <span class="text-danger">*</span></label>
+                                    @php $locked = $plan->exists && $plan->orders()->exists(); @endphp
+                                    <select name="region_id" id="region_id" required @disabled($locked) class="form-select @error('region_id') is-invalid @enderror">
+                                        @foreach ($regions as $r)
+                                            <option value="{{ $r->id }}" @selected((int) old('region_id', $plan->region_id ?? request('region')) === $r->id)>{{ $r->name }}{{ $r->is_active ? '' : ' (closed)' }}</option>
+                                        @endforeach
+                                    </select>
+                                    @if ($locked)<input type="hidden" name="region_id" value="{{ $plan->region_id }}">@endif
+                                    @error('region_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    <div class="form-text" style="font-size: .72rem;">
+                                        {{ $locked ? 'This plan already has orders, so its region can no longer be changed.' : 'Only members of this region can see and buy this plan.' }}
+                                    </div>
+                                </div>
+                                <div class="col-12">
                                     <label class="form-label small fw-medium">Plan Name <span class="text-danger">*</span></label>
                                     <input name="name" value="{{ old('name', $plan->name) }}" placeholder="e.g. BeyondSure Essential / Plus / Pro" required
                                         class="form-control @error('name') is-invalid @enderror">

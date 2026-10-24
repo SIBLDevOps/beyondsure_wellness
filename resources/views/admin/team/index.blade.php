@@ -43,7 +43,7 @@
                                         @foreach ($groups as $items)
                                             @foreach ($items as $key => [$label])
                                                 @if (in_array($key, $granted, true))
-                                                    <span class="badge {{ $key === 'reports.profit' ? 'bg-warning-subtle text-warning-emphasis' : 'bg-primary-subtle text-primary' }} fw-normal">{{ $label }}</span>
+                                                    <span class="badge {{ in_array($key, \App\Support\AdminPermissions::SENSITIVE, true) ? 'bg-warning-subtle text-warning-emphasis' : 'bg-primary-subtle text-primary' }} fw-normal">{{ $label }}</span>
                                                 @endif
                                             @endforeach
                                         @endforeach

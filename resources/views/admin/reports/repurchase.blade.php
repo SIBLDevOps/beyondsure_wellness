@@ -36,6 +36,7 @@
             </div>
         </div>
 
+        @if (auth()->user()->canSeeFinance())
         <div class="col-sm-6 col-xl-3">
             <div class="card border h-100">
                 <div class="card-body p-3">
@@ -47,6 +48,7 @@
                 </div>
             </div>
         </div>
+        @endif
 
         <div class="col-sm-6 col-xl-3">
             <div class="card border h-100">
@@ -90,8 +92,10 @@
                         <th data-sort-key="text">Plan</th>
                         <th>Products Purchased</th>
                         <th class="text-end" data-sort-key="number">MRP</th>
+                        @if (auth()->user()->canSeeFinance())
                         <th class="text-end" data-sort-key="number">GST</th>
                         <th class="text-end" data-sort-key="number">BV</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -110,8 +114,10 @@
                             <td>{{ $p['plan']->name ?? '—' }}</td>
                             <td class="small text-secondary">{{ $p['products'] ?: '—' }}</td>
                             <td class="text-end fw-semibold" data-sort-value="{{ $p['amount'] }}">₹{{ number_format($p['amount'], 0) }}</td>
+                            @if (auth()->user()->canSeeFinance())
                             <td class="text-end text-warning-emphasis" data-sort-value="{{ $p['gst'] }}">₹{{ number_format($p['gst'], 0) }}</td>
                             <td class="text-end text-success" data-sort-value="{{ $p['bv'] }}">₹{{ number_format($p['bv'], 0) }}</td>
+                            @endif
                         </tr>
                     @empty
                         <tr><td colspan="8" class="text-center text-body-tertiary py-4">No repurchase orders in this range.</td></tr>

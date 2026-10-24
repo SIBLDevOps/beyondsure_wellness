@@ -3,10 +3,39 @@
 @section('title', 'Member Dashboard')
 
 @section('content')
-    @if (!$member->hasBankDetails())
-        <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-3 py-2 mb-4">
-            <div><i class="bi bi-exclamation-triangle-fill me-1"></i> Add your bank &amp; UPI payout details to enable quick wallet withdrawals.</div>
-            <a href="{{ route('member.wallet.index') }}" class="btn btn-sm btn-warning flex-shrink-0"><i class="bi bi-bank me-1"></i>Complete Bank KYC</a>
+    @if (! $onboarding['complete'])
+        <div class="card border mb-4" style="border-color: var(--bs-primary-border-subtle) !important;">
+            <div class="card-body p-3 p-md-4">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                    <div>
+                        <h2 class="h6 fw-bold mb-0"><i class="bi bi-rocket-takeoff text-primary me-2"></i>Getting started</h2>
+                        <div class="text-secondary small">{{ $onboarding['done'] }} of {{ $onboarding['total'] }} steps done — follow these to start earning.</div>
+                    </div>
+                    @if ($onboarding['next'])
+                        <a href="{{ route($onboarding['next']['route']) }}" class="btn btn-primary btn-sm">{{ $onboarding['next']['cta'] }} <i class="bi bi-arrow-right ms-1"></i></a>
+                    @endif
+                </div>
+                <div class="progress mb-3" style="height: 6px;"><div class="progress-bar bg-success" style="width: {{ $onboarding['percent'] }}%"></div></div>
+                <div class="row g-2">
+                    @foreach ($onboarding['steps'] as $i => $s)
+                        @php $isNext = $onboarding['next'] && $onboarding['next']['key'] === $s['key']; @endphp
+                        <div class="col-md-6 col-xl">
+                            <div class="h-100 border rounded-3 p-3 {{ $s['done'] ? 'bg-success-subtle border-success-subtle' : ($isNext ? 'border-primary bg-primary-subtle' : 'bg-body') }}">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <span class="d-inline-grid rounded-circle {{ $s['done'] ? 'bg-success text-white' : ($isNext ? 'bg-primary text-white' : 'bg-secondary-subtle text-secondary') }}" style="width:22px;height:22px;display:inline-grid;place-items:center;font-size:.72rem;font-weight:700;">
+                                        @if ($s['done'])<i class="bi bi-check-lg"></i>@else{{ $i + 1 }}@endif
+                                    </span>
+                                    <span class="fw-semibold small">{{ $s['title'] }}</span>
+                                </div>
+                                <div class="text-secondary" style="font-size: .75rem; line-height: 1.4;">{{ $s['text'] }}</div>
+                                @if (! $s['done'])
+                                    <a href="{{ route($s['route']) }}" class="small fw-semibold text-decoration-none d-inline-block mt-1">{{ $s['cta'] }} →</a>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
         </div>
     @endif
 

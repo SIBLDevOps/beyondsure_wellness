@@ -109,22 +109,15 @@
                             <h2 class="card-title">Tax (GST)</h2>
                             <p class="card-sub">
                                 A plan's price is the <strong>taxable base</strong> — GST is added on top at checkout and is never part of
-                                company margin or the compensation pool. A product taxed at a different slab can be given its own rate on the
+                                company margin or the compensation pool. GST is set per product on the
                                 <a href="{{ route('admin.products.index') }}" class="link-primary text-decoration-none">Products</a> page.
                             </p>
                         </div>
                     </div>
                     <div class="card-body pt-0">
-                        <div class="row g-3">
-                            <div class="col-md-5">
-                                <label class="field-label" for="gst_pct">Default GST rate</label>
-                                <div class="input-group">
-                                    <input id="gst_pct" name="gst_pct" type="number" step="0.01" min="0" max="100"
-                                        value="{{ old('gst_pct', $values['gst_pct']) }}" class="form-control" required>
-                                    <span class="input-group-text">%</span>
-                                </div>
-                                <div class="field-hint">Used for any product that has no rate of its own.</div>
-                            </div>
+                        <div class="alert alert-info d-flex gap-2 mb-0 small">
+                            <i class="bi bi-info-circle mt-1"></i>
+                            <div>There is no company-wide GST rate. Set the rate on <strong>each product</strong> (0% for exempt items). A plan's GST is the blend of its products' rates, worked out when the order is placed.</div>
                         </div>
                     </div>
                 </section>

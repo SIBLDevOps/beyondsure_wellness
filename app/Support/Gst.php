@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Models\Plan;
-use App\Models\Setting;
 
 /**
  * Per the v2 model (Settings §0 — Tax Assumption, and the "Package Tiers, MRP excl. GST" table):
@@ -12,17 +11,21 @@ use App\Models\Setting;
  * spec labels package prices "excl. GST", so that's the convention the whole app follows.
  *
  * A plan is a bundle of several products, and each product can carry its own GST rate (falling
- * back to the company-wide default below when it doesn't). splitForPlan() allocates a bundle's
+ * entered on the product itself, never a global setting). splitForPlan() allocates a bundle's
  * base price across its products by relative retail value, applies each product's own rate, and
  * sums the result — so a bundle of a 5%-rated and an 18%-rated item is taxed as what it actually
  * is, not as one blended guess.
  */
 class Gst
 {
-    /** The company-wide default rate, used by any product that doesn't set its own. */
+    /**
+     * GST is set product by product; there is no company-wide rate. A product whose rate has not
+     * been entered yet (legacy data, or one added by someone without Finance access) is treated as
+     * 0% and flagged "GST not set" in the product list until Finance fills it in.
+     */
     public static function pct(): float
     {
-        return (float) Setting::get('gst_pct', 12);
+        return 0.0;
     }
 
     /** Flat fallback split — used only when there's no plan/product context to allocate against. */

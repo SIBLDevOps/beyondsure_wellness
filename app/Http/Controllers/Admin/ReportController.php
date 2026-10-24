@@ -12,12 +12,25 @@ class ReportController extends Controller
 {
     public function __construct(private readonly ReportService $reports) {}
 
+    /** ?region=ID narrows every report (and its CSV) to one region. Set per call, never cached across requests. */
+    public function callAction($method, $parameters)
+    {
+        $this->reports->forRegion(request()->integer('region'));
+
+        return $this->{$method}(...array_values($parameters));
+    }
+
     public function overview(Request $request): View
     {
         ['from' => $from, 'to' => $to] = $this->reports->range($request->from, $request->to);
         $data = $this->reports->businessOverview($from, $to);
+        // Side-by-side regions, shown when looking at all regions and there is more than one.
+        $byRegion = $request->integer('region') ? null : $this->reports->regionBreakdown($from, $to);
+        if ($byRegion && $byRegion->count() < 2) {
+            $byRegion = null;
+        }
 
-        return view('admin.reports.overview', compact('data', 'from', 'to'));
+        return view('admin.reports.overview', compact('data', 'from', 'to', 'byRegion'));
     }
 
     public function overviewTrendCsv(Request $request): StreamedResponse

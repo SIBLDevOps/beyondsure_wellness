@@ -12,6 +12,7 @@
         $navSections = [
             'Overview' => [
                 'admin.dashboard' => ['Dashboard', 'bi-grid-1x2', null],
+                'admin.guide.index' => ['Business Guide', 'bi-book', null],
             ],
             'Catalog & Commerce' => [
                 'admin.categories.index' => ['Categories', 'bi-tag', null],
@@ -28,6 +29,7 @@
                 'admin.dispatch.index' => ['Dispatch', 'bi-truck', null],
             ],
             'Network' => [
+                'admin.regions.index' => ['Regions', 'bi-geo-alt', null],
                 'admin.members.index' => ['Members', 'bi-people', null],
                 'admin.reports.overview' => ['Reports', 'bi-bar-chart-line', null],
             ],
@@ -203,5 +205,6 @@
             </main>
         </div>
     </div>
+    @stack('scripts')
 </body>
 </html>
