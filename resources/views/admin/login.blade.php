@@ -81,7 +81,7 @@
                             </svg>
                         </div>
                         <input id="email" name="email" type="email" value="{{ old('email') }}" autofocus required
-                            placeholder="admin@beyondsure.test"
+                            placeholder="you@company.com"
                             class="block w-full pl-10 pr-3.5 py-2.5 bg-slate-950/80 border @error('email') border-rose-500 focus:ring-rose-500 @else border-slate-700/80 focus:ring-indigo-500 @enderror rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:border-transparent transition">
                     </div>
                     @error('email') <p class="text-xs text-rose-400 mt-1.5">{{ $message }}</p> @enderror
@@ -129,22 +129,6 @@
                 </div>
             </form>
 
-            {{-- Demo / Seeded Credentials Quick-Fill Card --}}
-            <div class="mt-6 pt-5 border-t border-slate-800">
-                <div class="rounded-xl bg-slate-950/60 border border-slate-800/80 p-3 flex items-center justify-between gap-3">
-                    <div class="min-w-0">
-                        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Demo Credentials</div>
-                        <div class="text-xs text-slate-300 font-mono truncate mt-0.5">admin@beyondsure.test</div>
-                    </div>
-                    <button type="button" id="fillDemoBtn"
-                        class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 transition">
-                        <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        Auto-fill
-                    </button>
-                </div>
-            </div>
 
         </div>
 
@@ -176,17 +160,6 @@
                 });
             }
 
-            // Demo credentials auto-fill
-            const fillDemoBtn = document.getElementById('fillDemoBtn');
-            const emailInput = document.getElementById('email');
-
-            if (fillDemoBtn && emailInput && passwordInput) {
-                fillDemoBtn.addEventListener('click', function () {
-                    emailInput.value = 'admin@beyondsure.test';
-                    passwordInput.value = 'password';
-                    emailInput.focus();
-                });
-            }
         });
     </script>
 </body>

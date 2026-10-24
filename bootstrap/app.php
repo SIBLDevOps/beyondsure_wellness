@@ -18,6 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin/*')
             ? route('admin.login')
             : route('login'));
+
+        // Someone who is already signed in and opens a login page goes to their own dashboard (not the public home page).
+        $middleware->redirectUsersTo(fn (Request $request) => $request->is('admin/*')
+            ? route('admin.dashboard')
+            : route('member.dashboard'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
