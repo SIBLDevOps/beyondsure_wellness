@@ -3,14 +3,15 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'BeyondSure')</title>
+    <title>@yield('title', 'Welcome') — {{ Site::name() }}</title>
+    @include('partials.favicon')
     @vite('resources/css/app.css')
 </head>
 <body class="bg-ink-50 min-h-screen flex items-center justify-center px-4 py-10">
     <div class="w-full max-w-sm">
         <div class="text-center mb-6">
-            <a href="{{ route('home') }}" class="text-2xl font-bold text-ink-900">BeyondSure<span class="text-brand-600">+</span></a>
-            <p class="text-sm text-ink-500 mt-1">Wellness &amp; Protection Plans</p>
+            <a href="{{ route('home') }}" class="text-2xl font-bold text-ink-900 inline-block">@include('partials.brand', ['accent' => 'text-brand-600', 'img' => 'h-12 w-auto mx-auto'])</a>
+            <p class="text-sm text-ink-500 mt-1">{{ Site::tagline() }}</p>
         </div>
 
         <div class="bg-white shadow-sm rounded-2xl border border-ink-100 p-6">

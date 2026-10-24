@@ -3,8 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>BeyondSure+ — Wellness &amp; Protection Plans</title>
-    <meta name="description" content="BeyondSure+ wellness and protection plans — complimentary health benefits, curated wellness products, and a rewarding partner community.">
+    <title>{{ Site::metaTitle() }}</title>
+    <meta name="description" content="{{ Site::text('site_meta_description') }}">
+    @include('partials.favicon')
     @vite('resources/css/app.css')
 </head>
 <body class="bg-white text-ink-800 antialiased">
@@ -12,7 +13,7 @@
     {{-- Header --}}
     <header class="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-ink-100">
         <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-            <a href="{{ route('home') }}" class="text-xl font-bold text-ink-900">BeyondSure<span class="text-brand-600">+</span></a>
+            <a href="{{ route('home') }}" class="text-xl font-bold text-ink-900">@include('partials.brand', ['accent' => 'text-brand-600', 'img' => 'h-9 w-auto'])</a>
 
             <input type="checkbox" id="nav-toggle" class="peer hidden">
 
@@ -61,10 +62,10 @@
                 </p>
                 <div class="mt-8 flex flex-wrap gap-4">
                     <a href="#plans" class="bg-brand-500 hover:bg-brand-400 text-ink-900 font-semibold px-6 py-3 rounded-lg transition">
-                        Explore plans
+                        {{ $content['site_hero_cta_primary'] }}
                     </a>
                     <a href="{{ route('register') }}" class="border border-white/30 hover:bg-white/10 font-semibold px-6 py-3 rounded-lg transition">
-                        Get started free
+                        {{ $content['site_hero_cta_secondary'] }}
                     </a>
                 </div>
                 <div class="mt-10 grid grid-cols-3 gap-6 max-w-md">
@@ -103,7 +104,7 @@
     {{-- About --}}
     <section id="about" class="max-w-6xl mx-auto px-6 py-20 grid lg:grid-cols-2 gap-12 items-center">
         <div>
-            <span class="text-brand-600 font-semibold text-sm uppercase tracking-wide">About BeyondSure+</span>
+            <span class="text-brand-600 font-semibold text-sm uppercase tracking-wide">About {{ Site::name() }}</span>
             <h2 class="mt-2 text-3xl font-bold text-ink-900">Wellness made simple, accessible and rewarding</h2>
             <p class="mt-4 text-ink-600 leading-relaxed">{{ $content['site_about_text_1'] }}</p>
             <p class="mt-4 text-ink-600 leading-relaxed">{{ $content['site_about_text_2'] }}</p>
@@ -200,9 +201,9 @@
     <section id="plans" class="bg-ink-50">
         <div class="max-w-6xl mx-auto px-6 py-20">
             <div class="text-center max-w-2xl mx-auto">
-                <span class="text-brand-600 font-semibold text-sm uppercase tracking-wide">Plans</span>
-                <h2 class="mt-2 text-3xl font-bold text-ink-900">A bundle for every household</h2>
-                <p class="mt-3 text-ink-600">Transparent pricing, real wellness products, complimentary benefits included.</p>
+                <span class="text-brand-600 font-semibold text-sm uppercase tracking-wide">{{ $content['site_plans_eyebrow'] }}</span>
+                <h2 class="mt-2 text-3xl font-bold text-ink-900">{{ $content['site_plans_title'] }}</h2>
+                <p class="mt-3 text-ink-600">{{ $content['site_plans_subtitle'] }}</p>
             </div>
 
             <div class="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -1,6 +1,6 @@
 @extends('layouts.auth')
 
-@section('title', 'Log in — BeyondSure')
+@section('title', 'Log in')
 
 @section('content')
     <h2 class="text-lg font-semibold text-slate-900 mb-1">Member Portal Login</h2>
@@ -24,7 +24,7 @@
     </form>
 
     <p class="text-sm text-slate-500 text-center mt-4">
-        New to BeyondSure?
+        New here?
         <a href="{{ route('register') }}" class="text-emerald-600 font-medium">Create an account</a>
     </p>
 @endsection

@@ -4,9 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Member Portal') — BeyondSure+</title>
+    <title>@yield('title', 'Member Portal') — {{ Site::name() }}</title>
+    @include('partials.favicon')
     @vite(['resources/sass/member.scss', 'resources/js/member.js'])
-    <style>.min-w-0 { min-width: 0 !important; }</style>
+    <style>.min-w-0 { min-width: 0 !important; } .brand-logo { height: 34px; width: auto; max-width: 170px; object-fit: contain; }</style>
 </head>
 <body>
     @php
@@ -37,7 +38,7 @@
         {{-- Desktop Customer Sidebar --}}
         <aside class="member-sidebar d-none d-lg-flex flex-column p-3 flex-shrink-0 sticky-top" style="height: 100vh;">
             <div class="d-flex align-items-center justify-content-between mb-3 px-1">
-                <a href="{{ route('member.dashboard') }}" class="brand">BeyondSure<span class="accent">+</span></a>
+                <a href="{{ route('member.dashboard') }}" class="brand">@include('partials.brand', ['accent' => 'accent', 'img' => 'brand-logo', 'dark' => true])</a>
                 <span class="badge bg-white bg-opacity-10 text-white fw-normal" style="font-size: .68rem;">Member Portal</span>
             </div>
 
@@ -93,7 +94,7 @@
         {{-- Mobile Offcanvas Sidebar --}}
         <div class="offcanvas offcanvas-start member-sidebar d-lg-none" tabindex="-1" id="memberSidebar">
             <div class="offcanvas-header border-bottom border-white border-opacity-10">
-                <span class="brand">BeyondSure<span class="accent">+</span></span>
+                <span class="brand">@include('partials.brand', ['accent' => 'accent', 'img' => 'brand-logo', 'dark' => true])</span>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
             </div>
             <div class="offcanvas-body d-flex flex-column">

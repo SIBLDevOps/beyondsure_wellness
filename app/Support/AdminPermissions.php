@@ -30,7 +30,7 @@ class AdminPermissions
             'catalog' => ['Catalog — view only', 'See categories, products and plans. No cost prices, BV or margins.'],
             'catalog.manage' => ['Catalog — add & edit', 'Add, edit and delete categories and products. Plans also need Finance access, because price and BV are part of the money model.'],
             'messages' => ['Messages', 'Contact-form messages from the website.'],
-            'content' => ['Homepage & testimonials', 'Edit the public website content.'],
+            'content' => ['Website & testimonials', 'Change the brand, logo, homepage text, contact details and testimonials.'],
         ],
         'Operational reports' => [
             'reports.pending' => ['Pending & cash report', 'Unverified payments, unsettled orders and withdrawals waiting.'],

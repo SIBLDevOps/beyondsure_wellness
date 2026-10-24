@@ -11,7 +11,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Lets views write Site::name() instead of the full class name.
+        \Illuminate\Foundation\AliasLoader::getInstance()->alias('Site', \App\Support\Site::class);
     }
 
     /**

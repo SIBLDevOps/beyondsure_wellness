@@ -3,7 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Admin Login — BeyondSure</title>
+    <title>Admin Login — {{ Site::name() }}</title>
+    @include('partials.favicon')
     @vite('resources/css/app.css')
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,7 +24,7 @@
         {{-- Brand Logo & Badge --}}
         <a href="{{ route('home') }}" class="inline-flex items-center gap-2 group transition focus:outline-none">
             <span class="text-3xl font-extrabold tracking-tight text-white">
-                BeyondSure<span class="text-emerald-400 group-hover:text-emerald-300 transition">+</span>
+                @include('partials.brand', ['accent' => 'text-emerald-400 group-hover:text-emerald-300 transition', 'img' => 'h-14 w-auto mx-auto', 'dark' => true])
             </span>
         </a>
 
@@ -138,7 +139,7 @@
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
-                Return to BeyondSure+ Public Website
+                Return to {{ Site::name() }} Public Website
             </a>
         </div>
     </div>

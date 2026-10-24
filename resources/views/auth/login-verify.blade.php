@@ -1,6 +1,6 @@
 @extends('layouts.auth')
 
-@section('title', 'Verify OTP — BeyondSure')
+@section('title', 'Verify OTP')
 
 @section('content')
     <h2 class="text-lg font-semibold text-slate-900 mb-1">Enter OTP</h2>

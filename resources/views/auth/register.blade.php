@@ -1,10 +1,10 @@
 @extends('layouts.auth')
 
-@section('title', 'Register — BeyondSure')
+@section('title', 'Register')
 
 @section('content')
     <h2 class="text-lg font-semibold text-slate-900 mb-1">Create your account</h2>
-    <p class="text-xs text-slate-500 mb-4">Join the BeyondSure+ wellness &amp; partner community.</p>
+    <p class="text-xs text-slate-500 mb-4">Join our wellness &amp; partner community.</p>
 
     <form method="POST" action="{{ route('register.send') }}" class="space-y-4">
         @csrf

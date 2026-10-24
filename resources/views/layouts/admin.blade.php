@@ -3,10 +3,11 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'Admin') — BeyondSure</title>
+    <title>@yield('title', 'Admin') — {{ Site::name() }}</title>
+    @include('partials.favicon')
     @vite(['resources/sass/admin.scss', 'resources/js/admin.js'])
     {{-- Lets the content column shrink to the screen; without it a wide child (a big team tree) stretches the whole page. --}}
-    <style>.min-w-0 { min-width: 0 !important; }</style>
+    <style>.min-w-0 { min-width: 0 !important; } .brand-logo { height: 34px; width: auto; max-width: 170px; object-fit: contain; }</style>
 </head>
 <body>
     @php
@@ -37,7 +38,7 @@
             ],
             'Content & Config' => [
                 'admin.messages.index' => ['Messages', 'bi-envelope', $unreadMessages ?: null],
-                'admin.site-content.edit' => ['Homepage', 'bi-file-earmark-text', null],
+                'admin.site-content.edit' => ['Website', 'bi-globe2', null],
                 'admin.testimonials.index' => ['Testimonials', 'bi-star', null],
                 'admin.settings.edit' => ['Settings', 'bi-gear', null],
                 'admin.team.index' => ['Sub-admins', 'bi-person-badge', null],
@@ -70,7 +71,7 @@
         {{-- Desktop sidebar --}}
         <aside class="admin-sidebar d-none d-lg-flex flex-column p-3 flex-shrink-0 sticky-top" style="height: 100vh; max-height: 100vh;">
             <div class="d-flex align-items-center justify-content-between mb-3 px-1 flex-shrink-0">
-                <span class="brand">BeyondSure<span class="accent">+</span></span>
+                <span class="brand">@include('partials.brand', ['accent' => 'accent', 'img' => 'brand-logo', 'dark' => true])</span>
                 <span class="badge bg-white bg-opacity-10 text-indigo-100 small">Admin</span>
             </div>
 
@@ -118,7 +119,7 @@
         {{-- Mobile offcanvas sidebar --}}
         <div class="offcanvas offcanvas-start admin-sidebar d-lg-none" tabindex="-1" id="adminSidebar">
             <div class="offcanvas-header">
-                <span class="brand">BeyondSure<span class="accent">+</span></span>
+                <span class="brand">@include('partials.brand', ['accent' => 'accent', 'img' => 'brand-logo', 'dark' => true])</span>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
             </div>
             <div class="offcanvas-body d-flex flex-column">

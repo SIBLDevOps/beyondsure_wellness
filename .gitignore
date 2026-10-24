@@ -25,3 +25,6 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Files uploaded by the admin (logo, favicon)
+/public/uploads
