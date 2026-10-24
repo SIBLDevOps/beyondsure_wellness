@@ -20,7 +20,7 @@
         <div class="card-body p-3">
             <div class="small fw-semibold text-secondary mb-2"><i class="bi bi-signpost-split text-primary me-1"></i>Setting up a region</div>
             <div class="row g-2">
-                @foreach ([['1', 'Create the region', 'Name and code'], ['2', 'Design its plans', 'Plans, New plan, choose the region'], ['3', 'Share the invite link', 'On each region card below'], ['4', 'First member is the root', 'Everyone after joins under them']] as [$n, $t, $d])
+                @foreach ([['1', 'Create the region', 'Name and code'], ['2', 'Design its plans', 'Plans, New plan, choose the region'], ['3', 'Share the first-member link', 'Shown on the card until the root joins'], ['4', 'Root joins, then members invite', 'Everyone after joins through member links']] as [$n, $t, $d])
                     <div class="col-md-3"><div class="border rounded-3 px-3 py-2 h-100"><span class="badge bg-primary rounded-circle me-1">{{ $n }}</span><span class="fw-semibold small">{{ $t }}</span><div class="text-secondary" style="font-size:.72rem">{{ $d }}</div></div></div>
                 @endforeach
             </div>
@@ -58,11 +58,19 @@
                             @endif
                         </div>
 
-                        <label class="small text-secondary mb-1">Region invite link <span class="text-body-tertiary">(joins directly under this region's root)</span></label>
-                        <div class="input-group input-group-sm mb-3">
-                            <input class="form-control font-monospace" readonly value="{{ $region->registerUrl() }}" id="link-{{ $region->id }}">
-                            <button type="button" class="btn btn-outline-secondary" data-copy="link-{{ $region->id }}"><i class="bi bi-clipboard"></i> Copy</button>
-                        </div>
+                        @if ($region->rootMember)
+                            {{-- The tree already has its root, so everyone else joins through a member's own invite link. --}}
+                            <div class="rounded-3 border bg-body-tertiary px-3 py-2 small mb-3">
+                                <i class="bi bi-check-circle-fill text-success me-1"></i>
+                                <strong>Root created.</strong> New members now join through a member's own Left or Right invite link, so there is no region link to share.
+                            </div>
+                        @else
+                            <label class="small text-secondary mb-1">First-member link <span class="text-body-tertiary">(the first person to use it becomes this region's root)</span></label>
+                            <div class="input-group input-group-sm mb-3">
+                                <input class="form-control font-monospace" readonly value="{{ $region->registerUrl() }}" id="link-{{ $region->id }}">
+                                <button type="button" class="btn btn-outline-secondary" data-copy="link-{{ $region->id }}"><i class="bi bi-clipboard"></i> Copy</button>
+                            </div>
+                        @endif
 
                         @if ($region->plans_count === 0)
                             <div class="alert alert-warning py-2 small mb-3"><i class="bi bi-exclamation-triangle me-1"></i>This region has no plans yet, so its members can't buy anything.</div>

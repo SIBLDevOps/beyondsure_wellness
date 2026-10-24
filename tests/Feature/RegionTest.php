@@ -184,6 +184,21 @@ class RegionTest extends TestCase
             ->assertSee('Delhi NCR')->assertSee('register?region=DELHINCR', false);
     }
 
+    public function test_the_region_link_is_hidden_once_the_region_has_a_root(): void
+    {
+        $admin = $this->admin();
+
+        // Empty region: the first-member link is shown.
+        $this->actingAs($admin, 'web')->get(route('admin.regions.index'))->assertSee('register?region=GJ', false)->assertDontSee('Root created');
+
+        $this->member('GJROOT', $this->gj);
+
+        $page = $this->actingAs($admin, 'web')->get(route('admin.regions.index'));
+        $page->assertSee('Root created')->assertDontSee('register?region=GJ', false);
+        // A region that is still empty keeps its link.
+        $page->assertSee('register?region=MH', false);
+    }
+
     public function test_region_code_is_locked_once_members_joined(): void
     {
         $this->member('GJ0001', $this->gj);

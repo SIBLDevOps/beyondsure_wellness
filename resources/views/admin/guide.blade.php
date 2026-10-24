@@ -239,7 +239,7 @@
                     <h3>Which link does what</h3>
                     <ul class="ps-3">
                         <li><strong>Member invite link</strong> (<code>/register?sponsor=CODE&amp;side=left</code>): the new person joins the sponsor's region and the chosen leg. The region is read from the sponsor, so it can never mismatch.</li>
-                        <li><strong>Region link</strong> (<code>/register?region=CODE</code>, on each region card): joins directly under that region's root. Use it for ads and the website.</li>
+                        <li><strong>First-member link</strong> (<code>/register?region=CODE</code>, on the region card): used to bring in the first person, who becomes the region's root. Once the root exists the card hides it, and everyone else joins through a member's own invite link.</li>
                         <li><strong>Buy link</strong> (<code>/buy/PLAN</code>): a new visitor joins the plan's region. A sponsor from a different region is refused.</li>
                         <li><strong>No link at all:</strong> if only one region is open it is used; if several are open the visitor must choose one.</li>
                     </ul>
