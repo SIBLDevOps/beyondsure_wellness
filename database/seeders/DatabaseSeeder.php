@@ -17,10 +17,8 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        User::updateOrCreate(
-            ['email' => 'admin@beyondsure.test'],
-            ['name' => 'BeyondSure Admin', 'password' => bcrypt('password'), 'role' => 'admin']
-        );
+        // Creates the admin only if missing; never resets an existing admin's password.
+        $this->call(AdminSeeder::class);
 
         foreach ([
             'split_cost_pct' => 40,
