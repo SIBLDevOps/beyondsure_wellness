@@ -231,6 +231,7 @@
                                 <tr><td class="ps-3 fw-semibold">Root</td><td>The first member to join a region is its root. Anyone who registers without a sponsor joins under that root.</td></tr>
                                 <tr><td class="ps-3 fw-semibold">Plans</td><td>Each plan belongs to one region. Members only see and can only buy their own region's plans. A plan that already has orders cannot move region.</td></tr>
                                 <tr><td class="ps-3 fw-semibold">Mobile number</td><td>One number, one region, ever. If it is already registered elsewhere the sign-up stops with a message naming that region.</td></tr>
+                                <tr><td class="ps-3 fw-semibold">Sub-admin access</td><td>On the sub-admin's page you can limit them to chosen regions. They then see only those regions' members, orders, payments, plans and reports, and cannot approve cycles, release payout batches or create regions (those touch every region).</td></tr>
                                 <tr><td class="ps-3 fw-semibold">Shared</td><td>Products, GST, income rates, cycles, withdrawals and reports work the same in every region.</td></tr>
                             </tbody>
                         </table>

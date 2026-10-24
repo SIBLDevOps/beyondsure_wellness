@@ -151,6 +151,7 @@
                                 @if ($row->member)
                                     <a href="{{ route('admin.members.show', $row->member) }}" class="link-dark text-decoration-none">{{ $row->member->name }}</a>
                                     <span class="font-monospace text-body-tertiary small ms-1">({{ $row->member->member_code }})</span>
+<span class="text-body-tertiary small d-block"><i class="bi bi-phone"></i> {{ $row->member->phone }}</span>
                                 @else
                                     —
                                 @endif

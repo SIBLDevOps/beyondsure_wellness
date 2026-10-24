@@ -392,7 +392,7 @@
                 <form method="GET" class="d-flex align-items-center gap-2 small text-secondary me-2">
                     <label class="mb-0 fw-medium">Depth:</label>
                     <select name="depth" onchange="this.form.submit()" class="form-select form-select-sm" style="width: auto;">
-                        @foreach ([2, 3, 4, 5, 6] as $d)
+                        @foreach ([2, 3, 4, 5, 6, 7] as $d)
                             <option value="{{ $d }}" @selected($depth == $d)>{{ $d }} Levels</option>
                         @endforeach
                     </select>
@@ -681,54 +681,54 @@
         const tableContainer = document.getElementById('memberTableTreeContainer');
         const zoomControls = document.getElementById('memberTreeZoomControls');
 
+        // A big team is far wider than the screen, so the tree opens "fitted" (never smaller than 30%)
+        // and can be zoomed from 15% to 140%. Layout size doesn't change with a CSS scale, so the
+        // empty space it would leave is trimmed and the tree is centred by hand.
         let scale = 1;
+        const MIN_SCALE = 0.15, FIT_FLOOR = 0.3, MAX_SCALE = 1.4;
+        // CSS zoom (unlike transform) changes the real layout size, so the scroll area shrinks with it.
+        let naturalW = 1;
+        if (canvas) { canvas.style.minWidth = '0'; canvas.style.width = 'max-content'; canvas.style.transform = 'none'; naturalW = canvas.offsetWidth; }
+
+        function fitScale() {
+            if (!canvas || !visualContainer) return 1;
+            const avail = visualContainer.clientWidth - 32;
+            return Math.min(1, Math.max(FIT_FLOOR, Math.floor(avail / naturalW * 100) / 100));
+        }
         function applyZoom() {
             if (!canvas) return;
-            canvas.style.transform = `scale(${scale})`;
+            canvas.style.zoom = scale;
             if (btnZoomReset) {
                 btnZoomReset.textContent = Math.round(scale * 100) + '%';
             }
         }
-
         function centerTree() {
             if (!visualContainer) return;
-            const scrollableDist = visualContainer.scrollWidth - visualContainer.clientWidth;
-            if (scrollableDist > 0) {
-                visualContainer.scrollTo({
-                    left: scrollableDist / 2,
-                    behavior: 'smooth'
-                });
-            }
+            visualContainer.scrollLeft = Math.max(0, (visualContainer.scrollWidth - visualContainer.clientWidth) / 2);
+        }
+        function fitToScreen() {
+            scale = fitScale();
+            applyZoom();
+            centerTree();
         }
 
-        // Auto center tree on page load
-        setTimeout(() => {
-            if (visualContainer) {
-                const scrollableDist = visualContainer.scrollWidth - visualContainer.clientWidth;
-                if (scrollableDist > 0) {
-                    visualContainer.scrollLeft = scrollableDist / 2;
-                }
-            }
-        }, 100);
+        fitToScreen();
 
         if (btnZoomIn) {
             btnZoomIn.addEventListener('click', () => {
-                scale = Math.min(1.4, Math.round((scale + 0.1) * 10) / 10);
+                scale = Math.min(MAX_SCALE, Math.round((scale + 0.1) * 100) / 100);
                 applyZoom();
             });
         }
         if (btnZoomOut) {
             btnZoomOut.addEventListener('click', () => {
-                scale = Math.max(0.5, Math.round((scale - 0.1) * 10) / 10);
+                scale = Math.max(MIN_SCALE, Math.round((scale - 0.1) * 100) / 100);
                 applyZoom();
             });
         }
         if (btnZoomReset) {
-            btnZoomReset.addEventListener('click', () => {
-                scale = 1;
-                applyZoom();
-                centerTree();
-            });
+            btnZoomReset.title = 'Fit the whole tree to the screen';
+            btnZoomReset.addEventListener('click', fitToScreen);
         }
         if (btnCenter) {
             btnCenter.addEventListener('click', () => {

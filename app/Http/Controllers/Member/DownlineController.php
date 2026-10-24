@@ -22,8 +22,8 @@ class DownlineController extends Controller
     public function index(Request $request): View
     {
         $member = Auth::guard('member')->user();
-        $depth = (int) $request->input('depth', 6);
-        $depth = max(2, min(6, $depth));
+        $depth = (int) $request->input('depth', 4);
+        $depth = max(2, min(7, $depth));
 
         return view('member.downline', [
             'member' => $member,

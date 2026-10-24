@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Admin') — BeyondSure</title>
     @vite(['resources/sass/admin.scss', 'resources/js/admin.js'])
+    {{-- Lets the content column shrink to the screen; without it a wide child (a big team tree) stretches the whole page. --}}
+    <style>.min-w-0 { min-width: 0 !important; }</style>
 </head>
 <body>
     @php
@@ -166,6 +168,7 @@
                             <i class="bi bi-chevron-down text-muted small"></i>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                            <li><a class="dropdown-item" href="{{ route('admin.account.password') }}"><i class="bi bi-key me-2"></i>Change password</a></li>
                             <li><a class="dropdown-item" href="{{ route('home') }}" target="_blank"><i class="bi bi-box-arrow-up-right me-2"></i>View site</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li>

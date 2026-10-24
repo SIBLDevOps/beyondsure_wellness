@@ -72,7 +72,7 @@ class AdminPermissions
     private const CATALOG = ['admin.categories.' => false, 'admin.products.' => false, 'admin.plans.' => true];
 
     /** Pages every signed-in staff member can reach. */
-    private const ALWAYS = ['admin.dashboard', 'admin.logout'];
+    private const ALWAYS = ['admin.dashboard', 'admin.logout', 'admin.account.password', 'admin.account.password.update'];
 
     /** @return list<string> */
     public static function keys(): array

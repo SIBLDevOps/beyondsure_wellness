@@ -177,7 +177,7 @@ class RegionFlowTest extends TestCase
         $this->actingAs($this->admin, 'web')->get(route('admin.reports.sales'))
             ->assertOk()->assertSee('MH Essential')->assertSee('GJ Essential');
         $this->actingAs($this->admin, 'web')->get(route('admin.reports.overview'))
-            ->assertOk()->assertSee('Compare regions')->assertSee('Gujarat')->assertSee('Delhi');
+            ->assertOk()->assertSee('Profit by region')->assertSee('Gujarat')->assertSee('Delhi');
 
         // 9c. A closed region takes no new orders, but its members keep their accounts.
         $dl->update(['is_active' => false]);

@@ -69,9 +69,9 @@ class ReportController extends Controller
         $data = $this->reports->salesAndProducts($from, $to);
 
         $buyerRows = $data['top_buyers_all'] ?? $data['top_buyers'];
-        $rows = $buyerRows->map(fn ($r) => [$r->member->name, $r->member->member_code, $r->orders, $r->total_spent]);
+        $rows = $buyerRows->map(fn ($r) => [$r->member->name, $r->member->member_code, $r->member->phone, $r->orders, $r->total_spent]);
 
-        return $this->reports->csv($rows, ['Member', 'Code', 'Orders', 'Total spent']);
+        return $this->reports->csv($rows, ['Member', 'Code', 'Mobile', 'Orders', 'Total spent']);
     }
 
     public function salesPurchasesCsv(Request $request): StreamedResponse
@@ -81,12 +81,12 @@ class ReportController extends Controller
 
         $rows = $purchases->map(fn ($p) => [
             $p['order_code'], $p['date']->format('Y-m-d H:i'),
-            $p['member']->name ?? '', $p['member']->member_code ?? '',
+            $p['member']->name ?? '', $p['member']->member_code ?? '', $p['member']->phone ?? '',
             $p['plan']->name ?? '', $p['products'],
             $p['amount'], $p['gst'], $p['taxable_value'], $p['bv'], $p['status'],
         ]);
 
-        return $this->reports->csv($rows, ['Order code', 'Date', 'Member', 'Code', 'Plan', 'Products', 'MRP (incl. GST)', 'GST', 'Taxable value', 'BV', 'Status']);
+        return $this->reports->csv($rows, ['Order code', 'Date', 'Member', 'Code', 'Mobile', 'Plan', 'Products', 'MRP (incl. GST)', 'GST', 'Taxable value', 'BV', 'Status']);
     }
 
     public function payouts(Request $request): View
@@ -127,9 +127,9 @@ class ReportController extends Controller
         $data = $this->reports->payouts($from, $to);
 
         $earners = $data['top_earners_all'] ?? $data['top_earners'];
-        $rows = $earners->map(fn ($r) => [$r->member->name ?? '—', $r->member->member_code ?? '', $r->total]);
+        $rows = $earners->map(fn ($r) => [$r->member->name ?? '—', $r->member->member_code ?? '', $r->member->phone ?? '', $r->total]);
 
-        return $this->reports->csv($rows, ['Member', 'Code', 'Total earned']);
+        return $this->reports->csv($rows, ['Member', 'Code', 'Mobile', 'Total earned']);
     }
 
     public function levels(Request $request): View
@@ -137,6 +137,7 @@ class ReportController extends Controller
         ['from' => $from, 'to' => $to] = $this->reports->range($request->from, $request->to);
         $data = $this->reports->levelIncomeDistribution($from, $to);
         $data['earners'] = $this->reports->memberIncomeBreakdownPaginated($from, $to);
+        $data['network'] = $this->reports->networkByLevel($from, $to);
 
         return view('admin.reports.levels', compact('data', 'from', 'to'));
     }
@@ -172,11 +173,11 @@ class ReportController extends Controller
         $rows = $this->reports->memberIncomeBreakdown($from, $to);
 
         $csvRows = $rows->map(fn ($r) => [
-            $r['member']->name ?? '—', $r['member']->member_code ?? '', $r['depth'],
+            $r['member']->name ?? '—', $r['member']->member_code ?? '', $r['member']->phone ?? '', $r['depth'],
             $r['self_income'], $r['sponsor_income'], $r['matching_income'], $r['rank_income'], $r['total_income'], $r['entries'],
         ]);
 
-        return $this->reports->csv($csvRows, ['Member', 'Code', 'Tree Depth', 'Self Income', 'Sponsor Income', 'Matching Income', 'Rank Income', 'Total Income', 'Entries']);
+        return $this->reports->csv($csvRows, ['Member', 'Code', 'Mobile', 'Tree Depth', 'Self Income', 'Sponsor Income', 'Matching Income', 'Rank Income', 'Total Income', 'Entries']);
     }
 
     public function pending(): View
@@ -191,9 +192,9 @@ class ReportController extends Controller
         $data = $this->reports->pendingAndCash();
 
         $payments = $data['pending_payments_all'] ?? $data['pending_payments'];
-        $rows = $payments->map(fn ($p) => [$p->order->order_code, $p->order->member->name, $p->method, $p->reference, $p->created_at->format('Y-m-d H:i')]);
+        $rows = $payments->map(fn ($p) => [$p->order->order_code, $p->order->member->name, $p->order->member->phone, $p->method, $p->reference, $p->created_at->format('Y-m-d H:i')]);
 
-        return $this->reports->csv($rows, ['Order', 'Member', 'Method', 'Reference', 'Submitted']);
+        return $this->reports->csv($rows, ['Order', 'Member', 'Mobile', 'Method', 'Reference', 'Submitted']);
     }
 
     public function pendingWithdrawalsCsv(): StreamedResponse
@@ -201,9 +202,9 @@ class ReportController extends Controller
         $data = $this->reports->pendingAndCash();
 
         $withdrawals = $data['withdrawals_awaiting_dispatch_all'] ?? $data['withdrawals_awaiting_dispatch'];
-        $rows = $withdrawals->map(fn ($w) => [$w->member->name, $w->member->member_code, $w->amount, $w->created_at->format('Y-m-d')]);
+        $rows = $withdrawals->map(fn ($w) => [$w->member->name, $w->member->member_code, $w->member->phone, $w->amount, $w->created_at->format('Y-m-d')]);
 
-        return $this->reports->csv($rows, ['Member', 'Code', 'Amount', 'Approved']);
+        return $this->reports->csv($rows, ['Member', 'Code', 'Mobile', 'Amount', 'Approved']);
     }
 
     public function pendingUnsettledCsv(): StreamedResponse
@@ -211,9 +212,9 @@ class ReportController extends Controller
         $data = $this->reports->pendingAndCash();
 
         $orders = $data['unsettled_orders_all'] ?? $data['unsettled_orders'];
-        $rows = $orders->map(fn ($o) => [$o->order_code, $o->member->name, $o->plan->name, $o->amount, $o->bv, $o->created_at->format('Y-m-d')]);
+        $rows = $orders->map(fn ($o) => [$o->order_code, $o->member->name, $o->member->phone, $o->plan->name, $o->amount, $o->bv, $o->created_at->format('Y-m-d')]);
 
-        return $this->reports->csv($rows, ['Order', 'Member', 'Plan', 'Amount', 'BV', 'Paid on']);
+        return $this->reports->csv($rows, ['Order', 'Member', 'Mobile', 'Plan', 'Amount', 'BV', 'Paid on']);
     }
 
     public function compliance(Request $request): View
@@ -293,7 +294,7 @@ class ReportController extends Controller
             $p['date'] ? $p['date']->format('Y-m-d H:i') : '',
             $p['order_code'],
             $p['member']->name ?? '',
-            $p['member']->member_code ?? '',
+            $p['member']->member_code ?? '', $p['member']->phone ?? '',
             $p['plan']->name ?? '',
             $p['products'],
             $p['amount'],
@@ -303,7 +304,7 @@ class ReportController extends Controller
             $p['status'],
         ]);
 
-        return $this->reports->csv($rows, ['Date', 'Order code', 'Member', 'Member code', 'Plan', 'Products', 'MRP', 'GST', 'Taxable value', 'BV', 'Status']);
+        return $this->reports->csv($rows, ['Date', 'Order code', 'Member', 'Member code', 'Mobile', 'Plan', 'Products', 'MRP', 'GST', 'Taxable value', 'BV', 'Status']);
     }
 
     public function repurchaseBuyersCsv(Request $request): StreamedResponse
@@ -314,7 +315,7 @@ class ReportController extends Controller
         $buyers = $data['top_buyers_all'] ?? $data['top_buyers'];
         $rows = $buyers->map(fn ($b) => [
             $b->member->name ?? '',
-            $b->member->member_code ?? '',
+            $b->member->member_code ?? '', $b->member->phone ?? '',
             $b->repurchase_orders,
             $b->total_spent,
             $b->total_bv,
@@ -322,6 +323,6 @@ class ReportController extends Controller
             $b->latest_order_date ? $b->latest_order_date->format('Y-m-d') : '—',
         ]);
 
-        return $this->reports->csv($rows, ['Member', 'Member code', 'Repeat Orders', 'Total Spent', 'Total BV', 'First Order Date', 'Latest Repurchase Date']);
+        return $this->reports->csv($rows, ['Member', 'Member code', 'Mobile', 'Repeat Orders', 'Total Spent', 'Total BV', 'First Order Date', 'Latest Repurchase Date']);
     }
 }

@@ -183,7 +183,7 @@
                 <form method="GET" class="d-flex align-items-center gap-2 small text-secondary me-2">
                     <label class="mb-0 fw-medium">Depth:</label>
                     <select name="depth" onchange="this.form.submit()" class="form-select form-select-sm" style="width: auto;">
-                        @foreach ([2, 3, 4, 5, 6] as $d)
+                        @foreach ([2, 3, 4, 5, 6, 7] as $d)
                             <option value="{{ $d }}" @selected($depth == $d)>{{ $d }} Levels</option>
                         @endforeach
                     </select>
@@ -436,29 +436,61 @@
         const tableContainer = document.getElementById('tableTreeContainer');
         const zoomControls = document.getElementById('treeZoomControls');
 
+        // A big team is far wider than the screen, so the tree opens "fitted" (never smaller than 30%)
+        // and can be zoomed from 15% to 140%. Layout size doesn't change with a CSS scale, so the
+        // empty space it would leave is trimmed and the tree is centred by hand.
         let scale = 1;
+        const MIN_SCALE = 0.15, FIT_FLOOR = 0.3, MAX_SCALE = 1.4;
+        // CSS zoom (unlike transform) changes the real layout size, so the scroll area shrinks with it.
+        let naturalW = 1;
+        if (canvas) { canvas.style.minWidth = '0'; canvas.style.width = 'max-content'; canvas.style.transform = 'none'; naturalW = canvas.offsetWidth; }
+
+        function fitScale() {
+            if (!canvas || !visualContainer) return 1;
+            const avail = visualContainer.clientWidth - 32;
+            return Math.min(1, Math.max(FIT_FLOOR, Math.floor(avail / naturalW * 100) / 100));
+        }
         function applyZoom() {
             if (!canvas) return;
-            canvas.style.transform = `scale(${scale})`;
+            canvas.style.zoom = scale;
             btnZoomReset.textContent = Math.round(scale * 100) + '%';
+        }
+        function fitToScreen() {
+            scale = fitScale();
+            applyZoom();
+            visualContainer.scrollLeft = Math.max(0, (visualContainer.scrollWidth - visualContainer.clientWidth) / 2);
         }
 
         if (btnZoomIn) {
             btnZoomIn.addEventListener('click', () => {
-                scale = Math.min(1.4, Math.round((scale + 0.1) * 10) / 10);
+                scale = Math.min(MAX_SCALE, Math.round((scale + 0.1) * 100) / 100);
                 applyZoom();
             });
         }
         if (btnZoomOut) {
             btnZoomOut.addEventListener('click', () => {
-                scale = Math.max(0.5, Math.round((scale - 0.1) * 10) / 10);
+                scale = Math.max(MIN_SCALE, Math.round((scale - 0.1) * 100) / 100);
                 applyZoom();
             });
         }
         if (btnZoomReset) {
-            btnZoomReset.addEventListener('click', () => {
-                scale = 1;
-                applyZoom();
+            btnZoomReset.title = 'Fit the whole tree to the screen';
+            btnZoomReset.addEventListener('click', fitToScreen);
+        }
+        fitToScreen();
+
+        // Drag to pan the tree sideways.
+        if (visualContainer) {
+            let down = false, startX = 0, startLeft = 0;
+            visualContainer.addEventListener('mousedown', (e) => {
+                if (e.target.closest('a, button, input, select')) return;
+                down = true; startX = e.pageX; startLeft = visualContainer.scrollLeft;
+            });
+            window.addEventListener('mouseup', () => { down = false; });
+            visualContainer.addEventListener('mousemove', (e) => {
+                if (!down) return;
+                e.preventDefault();
+                visualContainer.scrollLeft = startLeft - (e.pageX - startX);
             });
         }
 

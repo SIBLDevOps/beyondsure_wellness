@@ -43,7 +43,7 @@
                     @forelse ($data['pending_payments'] as $p)
                         <tr>
                             <td class="font-monospace small fw-semibold">{{ $p->order->order_code }}</td>
-                            <td class="fw-medium">{{ $p->order->member->name }}</td>
+                            <td class="fw-medium">{{ $p->order->member->name }}<span class="text-body-tertiary small d-block"><i class="bi bi-phone"></i> {{ $p->order->member->phone }}</span></td>
                             <td><span class="badge bg-light text-secondary border text-capitalize">{{ str_replace('_', ' ', $p->method) }}</span></td>
                             <td class="text-body-tertiary small">{{ $p->created_at->format('d M Y') }}</td>
                         </tr>
@@ -83,7 +83,7 @@
                 <tbody>
                     @forelse ($data['withdrawals_awaiting_dispatch'] as $w)
                         <tr>
-                            <td class="fw-medium">{{ $w->member->name }}</td>
+                            <td class="fw-medium">{{ $w->member->name }}<span class="text-body-tertiary small d-block"><i class="bi bi-phone"></i> {{ $w->member->phone }}</span></td>
                             <td class="text-end fw-semibold">₹{{ number_format($w->amount, 2) }}</td>
                         </tr>
                     @empty
@@ -127,7 +127,7 @@
                     @forelse ($data['unsettled_orders'] as $o)
                         <tr>
                             <td class="font-monospace small fw-semibold">{{ $o->order_code }}</td>
-                            <td class="fw-medium">{{ $o->member->name }}</td>
+                            <td class="fw-medium">{{ $o->member->name }}<span class="text-body-tertiary small d-block"><i class="bi bi-phone"></i> {{ $o->member->phone }}</span></td>
                             <td>{{ $o->plan->name }}</td>
                             @if (auth()->user()->canSeeFinance())
                             <td class="text-end fw-medium">₹{{ number_format($o->bv, 0) }}</td>

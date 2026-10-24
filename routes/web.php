@@ -128,6 +128,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
         Route::put('settings/ranks', [SettingsController::class, 'updateRanks'])->name('settings.ranks');
 
+        Route::get('account/password', [\App\Http\Controllers\Admin\AccountController::class, 'edit'])->name('account.password');
+        Route::put('account/password', [\App\Http\Controllers\Admin\AccountController::class, 'update'])->name('account.password.update');
+
         Route::get('guide', [GuideController::class, 'index'])->name('guide.index');
 
         Route::resource('regions', RegionController::class)->except('show', 'destroy')

@@ -119,6 +119,63 @@
         </div>
     </div>
 
+    {{-- Team by tree level: all 7 levels, always shown --}}
+    @php
+        $net = $data['network'];
+        $maxMembers = max(1, $net['rows']->max('members'));
+        $money = fn ($n) => '₹' . number_format($n, 0);
+    @endphp
+    <div class="card border mb-4 shadow-sm">
+        <div class="card-header bg-light-subtle border-bottom py-3">
+            <h2 class="h6 mb-0 fw-semibold"><i class="bi bi-diagram-3 me-2 text-primary"></i>Team by level (L1 to L7)</h2>
+            <div class="text-body-tertiary small">
+                Level 1 is the top of a region's tree (its root); each level below is one step deeper. Shows how many people sit at each level, what they bought and what they earned in this period.
+                @if (! request()->integer('region') && (\App\Models\Region::count() > 1)) Each region is measured from its own root. @endif
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light text-secondary small">
+                    <tr>
+                        <th class="ps-3">Level</th>
+                        <th style="min-width:160px;">Members</th>
+                        <th class="text-end">Active</th>
+                        <th class="text-end">Purchases (excl. GST)</th>
+                        <th class="text-end">BV</th>
+                        <th class="text-end pe-3">Income earned</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($net['rows'] as $r)
+                        <tr class="{{ $r['members'] === 0 ? 'text-body-tertiary' : '' }}">
+                            <td class="ps-3 fw-semibold">{{ $r['label'] }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fw-semibold" style="min-width: 2rem;">{{ number_format($r['members']) }}</span>
+                                    <div class="progress flex-grow-1" style="height: 6px;"><div class="progress-bar" style="width: {{ $r['members'] / $maxMembers * 100 }}%; background:#6d28d9;"></div></div>
+                                </div>
+                            </td>
+                            <td class="text-end">{{ number_format($r['active']) }}</td>
+                            <td class="text-end">{{ $money($r['taxable']) }}</td>
+                            <td class="text-end">{{ $money($r['bv']) }}</td>
+                            <td class="text-end pe-3 fw-semibold">{{ $money($r['income']) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+                <tfoot class="table-light fw-semibold">
+                    <tr>
+                        <td class="ps-3">Total</td>
+                        <td>{{ number_format($net['total']['members']) }}</td>
+                        <td class="text-end">{{ number_format($net['total']['active']) }}</td>
+                        <td class="text-end">{{ $money($net['total']['taxable']) }}</td>
+                        <td class="text-end">{{ $money($net['total']['bv']) }}</td>
+                        <td class="text-end pe-3">{{ $money($net['total']['income']) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
     {{-- Main Analyst Analysis Container (Tabs) --}}
     <div class="card border mb-4 shadow-sm">
         <style>
@@ -305,6 +362,7 @@
                                                     {{ $row['member']->name }}
                                                 </a>
                                                 <span class="font-monospace text-body-tertiary small d-block">{{ $row['member']->member_code }}</span>
+<span class="text-body-tertiary small d-block"><i class="bi bi-phone"></i> {{ $row['member']->phone }}</span>
                                             @else
                                                 —
                                             @endif

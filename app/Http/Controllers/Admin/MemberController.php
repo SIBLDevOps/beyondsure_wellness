@@ -119,8 +119,8 @@ class MemberController extends Controller
 
     public function network(Request $request, Member $member): View
     {
-        $depth = (int) $request->input('depth', 6);
-        $depth = max(2, min(6, $depth));
+        $depth = (int) $request->input('depth', 4);
+        $depth = max(2, min(7, $depth));
 
         $subtreeIds = $this->network->subtreeOf($member, includeRoot: true)->pluck('id');
 

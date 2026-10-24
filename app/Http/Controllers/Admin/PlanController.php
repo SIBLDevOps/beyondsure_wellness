@@ -137,6 +137,9 @@ class PlanController extends Controller
 
         $data['is_active'] = $request->boolean('is_active', true);
 
+        // A region-restricted sub-admin can only work inside the regions they were given.
+        abort_unless(\App\Models\Region::whereKey($data['region_id'])->exists(), 403, 'You do not have access to that region.');
+
         return $data;
     }
 }

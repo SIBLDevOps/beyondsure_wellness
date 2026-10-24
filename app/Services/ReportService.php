@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Cycle;
 use App\Models\LedgerEntry;
+use App\Models\Member;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Plan;
@@ -62,6 +63,55 @@ class ReportService
     }
 
     /**
+     * The whole team laid out by tree level, L1 to L7 and "8+": how many people sit at each depth, how
+     * many are active, what they bought and what they earned in the range. Level 1 is the top of a
+     * region's tree (its root); every level below is one step deeper. Covers the selected region, or
+     * every region (each measured from its own root) when none is selected.
+     *
+     * @return array{rows: Collection, total: array}
+     */
+    public function networkByLevel(Carbon $from, Carbon $to, int $levels = 7): array
+    {
+        $members = Member::query()
+            ->when($this->regionId, fn (Builder $q) => $q->where('region_id', $this->regionId))
+            ->get(['id', 'path', 'status']);
+
+        $bvByMember = $this->orders()->whereBetween('created_at', [$from, $to])->whereIn('status', ['paid', 'settled'])
+            ->selectRaw('member_id, SUM(bv) as bv, SUM(COALESCE(taxable_amount, amount)) as taxable')->groupBy('member_id')->get()->keyBy('member_id');
+        $incomeByMember = $this->ledger()->whereBetween('created_at', [$from, $to])->where('amount', '>', 0)
+            ->selectRaw('member_id, SUM(amount) as total')->groupBy('member_id')->pluck('total', 'member_id');
+
+        $rows = collect(range(1, $levels + 1))->mapWithKeys(fn ($l) => [$l => [
+            'level' => $l, 'label' => $l > $levels ? "L{$levels}+ (deeper)" : "L{$l}", 'members' => 0, 'active' => 0, 'bv' => 0.0, 'taxable' => 0.0, 'income' => 0.0,
+        ]]);
+
+        foreach ($members as $m) {
+            $depth = $m->path ? substr_count($m->path, '.') + 1 : 1;
+            $key = min($depth, $levels + 1);
+            $row = $rows[$key];
+            $row['members']++;
+            $row['active'] += $m->status === 'active' ? 1 : 0;
+            $row['bv'] += (float) ($bvByMember[$m->id]->bv ?? 0);
+            $row['taxable'] += (float) ($bvByMember[$m->id]->taxable ?? 0);
+            $row['income'] += (float) ($incomeByMember[$m->id] ?? 0);
+            $rows[$key] = $row;
+        }
+
+        // The "deeper" row only shows when somebody actually sits below level 7.
+        if ($rows[$levels + 1]['members'] === 0) {
+            $rows->forget($levels + 1);
+        }
+
+        return [
+            'rows' => $rows->values(),
+            'total' => [
+                'members' => $rows->sum('members'), 'active' => $rows->sum('active'),
+                'bv' => $rows->sum('bv'), 'taxable' => $rows->sum('taxable'), 'income' => $rows->sum('income'),
+            ],
+        ];
+    }
+
+    /**
      * One row per region for the same date range: who joined, what was sold and what was paid out.
      * Always unfiltered, so it can sit beside the region picker as the "compare regions" view.
      */
@@ -69,21 +119,26 @@ class ReportService
     {
         return \App\Models\Region::orderBy('sort_order')->get()->map(function (\App\Models\Region $r) use ($from, $to) {
             $scoped = (new self)->forRegion($r->id);
-            $orders = $scoped->orders()->whereBetween('created_at', [$from, $to])->whereIn('status', ['paid', 'settled']);
-            $revenue = (float) (clone $orders)->sum('amount');
-            $taxable = (float) (clone $orders)->sum('taxable_amount');
+            $orders = $scoped->orders()->whereBetween('created_at', [$from, $to])->whereIn('status', ['paid', 'settled'])->with('plan.products')->get();
+            $revenue = (float) $orders->sum('amount');
+            $taxable = round($orders->sum(fn (Order $o) => (float) ($o->taxable_amount ?? $o->amount)), 2);
+            $cost = round($orders->sum(fn (Order $o) => (float) ($o->plan?->costForQty() ?? 0)), 2);
             $paidOut = (float) $scoped->ledger()->whereBetween('created_at', [$from, $to])->where('amount', '>', 0)->sum('amount');
+            $profit = round($taxable - $cost - $paidOut, 2);
 
             return [
                 'region' => $r,
                 'members' => $r->members()->count(),
                 'new_members' => $r->members()->whereBetween('created_at', [$from, $to])->count(),
-                'orders' => (clone $orders)->count(),
+                'orders' => $orders->count(),
                 'revenue' => $revenue,
                 'taxable' => $taxable,
-                'bv' => (float) (clone $orders)->sum('bv'),
+                'cost' => $cost,
+                'bv' => (float) $orders->sum('bv'),
                 'paid_out' => $paidOut,
                 'payout_pct' => $taxable > 0 ? round($paidOut / $taxable * 100, 1) : 0,
+                'profit' => $profit,
+                'margin_pct' => $taxable > 0 ? round($profit / $taxable * 100, 1) : 0,
             ];
         });
     }
@@ -146,6 +201,16 @@ class ReportService
         $taxableRevenue = round($revenue - $gstCollected, 2);
         $gstPct = $taxableRevenue > 0 ? round($gstCollected / $taxableRevenue * 100, 2) : Gst::pct();
 
+        // Profit and loss. Cost of goods is what the products inside each sold plan cost us; member
+        // income is what the cycles actually paid out in the range (by type). What is left of the
+        // taxable sales after both is the net profit — negative means a loss.
+        $costOfGoods = round($orders->sum(fn (Order $o) => (float) ($o->plan?->costForQty() ?? 0)), 2);
+        $incomeByType = $this->ledger()->whereBetween('created_at', [$from, $to])->where('amount', '>', 0)
+            ->selectRaw('type, SUM(amount) as total')->groupBy('type')->pluck('total', 'type')
+            ->map(fn ($v) => (float) $v);
+        $grossProfit = round($taxableRevenue - $costOfGoods, 2);
+        $netProfit = round($grossProfit - $paidOut, 2);
+
         // v2 §2B: New vs. Repurchase — reported for visibility only. Self/Sponsor/Matching pay
         // identical rates either way (CompensationEngine never checks this flag).
         $newOrders = $orders->where('is_repurchase', false);
@@ -178,7 +243,14 @@ class ReportService
             'bv' => $bv,
             'paid_out' => $paidOut,
             'payout_pct' => $revenue > 0 ? round($paidOut / $revenue * 100, 2) : 0,
-            'net_margin' => $taxableRevenue - $paidOut,
+            'net_margin' => $netProfit,
+            'net_profit' => $netProfit,
+            'gross_profit' => $grossProfit,
+            'cost_of_goods' => $costOfGoods,
+            'income_by_type' => $incomeByType,
+            'net_margin_pct' => $taxableRevenue > 0 ? round($netProfit / $taxableRevenue * 100, 1) : 0,
+            'cost_pct' => $taxableRevenue > 0 ? round($costOfGoods / $taxableRevenue * 100, 1) : 0,
+            'income_pct' => $taxableRevenue > 0 ? round($paidOut / $taxableRevenue * 100, 1) : 0,
             'avg_order_value' => $orders->count() > 0 ? $revenue / $orders->count() : 0,
             'order_count' => $orders->count(),
             'target_split' => ['cost' => $costPct, 'pool' => $poolPct, 'company' => $companyPct],

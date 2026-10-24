@@ -23,6 +23,7 @@
                     <tr>
                         <th class="ps-3">Name</th>
                         <th>Can access</th>
+                        <th>Regions</th>
                         <th class="text-center">Status</th>
                         <th class="text-end pe-3">Actions</th>
                     </tr>
@@ -48,6 +49,15 @@
                                             @endforeach
                                         @endforeach
                                     </div>
+                                @endif
+                            </td>
+                            <td class="small" style="min-width:140px;">
+                                @if ($sub->regionScope() === null)
+                                    <span class="text-body-tertiary">All regions</span>
+                                @else
+                                    @foreach (\App\Models\Region::whereIn('id', $sub->regionScope())->orderBy('sort_order')->get() as $rg)
+                                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle fw-normal">{{ $rg->name }}</span>
+                                    @endforeach
                                 @endif
                             </td>
                             <td class="text-center">

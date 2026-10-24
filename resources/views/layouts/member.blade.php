@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Member Portal') — BeyondSure+</title>
     @vite(['resources/sass/member.scss', 'resources/js/member.js'])
+    <style>.min-w-0 { min-width: 0 !important; }</style>
 </head>
 <body>
     @php

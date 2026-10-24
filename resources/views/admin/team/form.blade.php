@@ -55,6 +55,41 @@
             </div>
         </div>
 
+        @php
+            $chosenRegions = old('region_ids', $subAdmin->region_ids ?? []);
+            $regionMode = old('region_access', empty($subAdmin->region_ids) ? 'all' : 'selected');
+        @endphp
+        <div class="card border mb-4" id="regionAccessCard">
+            <div class="card-header bg-light-subtle border-bottom py-3">
+                <h2 class="h6 mb-0 fw-semibold"><i class="bi bi-geo-alt me-2 text-primary"></i>Which regions they can see</h2>
+                <div class="text-body-tertiary small">Applies on top of the sections below. Members, orders, payments, plans and reports then show only these regions.</div>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-3 mb-2">
+                    <div class="form-check"><input class="form-check-input" type="radio" name="region_access" id="ra_all" value="all" @checked($regionMode === 'all')><label class="form-check-label fw-medium" for="ra_all">All regions</label></div>
+                    <div class="form-check"><input class="form-check-input" type="radio" name="region_access" id="ra_sel" value="selected" @checked($regionMode === 'selected')><label class="form-check-label fw-medium" for="ra_sel">Only the regions I tick</label></div>
+                </div>
+                <div class="d-flex flex-wrap gap-2" id="regionBoxes">
+                    @foreach ($regions as $r)
+                        <label class="border rounded-3 px-3 py-2 d-flex align-items-center gap-2" style="cursor:pointer;">
+                            <input type="checkbox" class="form-check-input mt-0" name="region_ids[]" value="{{ $r->id }}" @checked(in_array($r->id, array_map('intval', (array) $chosenRegions), true))>
+                            <span class="small fw-semibold">{{ $r->name }}</span>
+                        </label>
+                    @endforeach
+                </div>
+                @error('region_ids') <div class="text-danger small mt-2">{{ $message }}</div> @enderror
+                <div class="form-text mt-2">A person limited to some regions can't approve cycles, release payout batches or create regions, because those affect every region.</div>
+            </div>
+        </div>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                var boxes = document.getElementById('regionBoxes');
+                function sync() { var sel = document.getElementById('ra_sel').checked; boxes.style.opacity = sel ? 1 : .45; boxes.querySelectorAll('input').forEach(function (i) { i.disabled = !sel; }); }
+                document.querySelectorAll('input[name=region_access]').forEach(function (r) { r.addEventListener('change', sync); });
+                sync();
+            });
+        </script>
+
         <div class="card border mb-4">
             <div class="card-header bg-light-subtle border-bottom py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <div>
