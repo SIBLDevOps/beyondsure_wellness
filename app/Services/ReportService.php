@@ -57,6 +57,15 @@ class ReportService
         return $this->inRegion(Withdrawal::query(), 'member');
     }
 
+    /**
+     * Cycles are company-wide (one cycle settles every region), so their pool and payout totals include regions a
+     * region-limited user cannot open. Those users get no cycle rows rather than someone else's totals.
+     */
+    private function cycles(): Builder
+    {
+        return Cycle::query()->when(\App\Models\Scopes\AdminRegionScope::ids() !== null, fn (Builder $q) => $q->whereRaw('1 = 0'));
+    }
+
     private function plans(): Builder
     {
         return Plan::query()->when($this->regionId, fn (Builder $q) => $q->where('region_id', $this->regionId));
@@ -450,7 +459,7 @@ class ReportService
 
     public function payouts(Carbon $from, Carbon $to): array
     {
-        $cyclesQuery = Cycle::whereBetween('period_end', [$from, $to])->orderByDesc('period_end');
+        $cyclesQuery = $this->cycles()->whereBetween('period_end', [$from, $to])->orderByDesc('period_end');
         $cycles = (clone $cyclesQuery)->paginate(10, pageName: 'cycles_page')->withQueryString();
         $cyclesAll = (clone $cyclesQuery)->get();
 
@@ -533,7 +542,7 @@ class ReportService
 
         $byMonthPaginated = $this->paginateCollection($byMonth, 12, 'months_page');
 
-        $overpaidQuery = Cycle::whereColumn('total_paid', '>', 'pool_bv')->latest('period_end');
+        $overpaidQuery = $this->cycles()->whereColumn('total_paid', '>', 'pool_bv')->latest('period_end');
         $overpaidCycles = (clone $overpaidQuery)->paginate(10, pageName: 'overpaid_page')->withQueryString();
         $overpaidCyclesAll = (clone $overpaidQuery)->get();
 
@@ -775,17 +784,40 @@ class ReportService
         ];
     }
 
+    /**
+     * Spreadsheet programs run a cell that starts with = + - @ (or a tab / carriage return) as a formula. Text written by
+     * members (names, references) ends up in these files, so such text is defused with a leading apostrophe.
+     * Real numbers, and strings that are plain numbers such as "-12.00", are left exactly as they are.
+     */
+    private function csvCell(mixed $value): mixed
+    {
+        if (! is_string($value) || $value === '' || is_numeric($value)) {
+            return $value;
+        }
+
+        return in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true) ? "'".$value : $value;
+    }
+
+    /** Named after the report that is being downloaded: class, report, region and date (or month). */
+    private function downloadName(): string
+    {
+        $route = request()->route()?->getName();
+        $period = $route === 'admin.reports.gst.csv' ? GstReportService::month(request()->query('month'))->format('Y-m') : null;
+
+        return \App\Support\ReportNames::fileName($route, $this->regionId, $period);
+    }
+
     public function csv(Collection|array $rows, array $headers): StreamedResponse
     {
         return response()->streamDownload(function () use ($rows, $headers) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, $headers);
+            fputcsv($out, array_map([$this, 'csvCell'], $headers));
 
             foreach ($rows as $row) {
-                fputcsv($out, $row);
+                fputcsv($out, array_map([$this, 'csvCell'], is_array($row) ? $row : (array) $row));
             }
 
             fclose($out);
-        }, 'report-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv']);
+        }, $this->downloadName(), ['Content-Type' => 'text/csv']);
     }
 }

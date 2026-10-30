@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -26,6 +27,7 @@ class Member extends Authenticatable
         'path',
         'rank',
         'region_id',
+        'interested_plan_id',
         'status',
         'phone_verified_at',
         'email_verified_at',
@@ -34,6 +36,7 @@ class Member extends Authenticatable
         'bank_ifsc',
         'bank_name',
         'upi_id',
+        'email_opt_out',
     ];
 
     protected $hidden = [
@@ -57,6 +60,12 @@ class Member extends Authenticatable
             $m->region_id ??= Member::query()->whereKey($m->sponsor_id ?? $m->placement_id)->value('region_id')
                 ?? Region::fallbackId();
         });
+    }
+
+    /** The plan this person said they wanted when they registered (may be empty for people added another way). */
+    public function interestedPlan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class, 'interested_plan_id');
     }
 
     public function region(): BelongsTo
@@ -125,6 +134,60 @@ class Member extends Authenticatable
         $reserved = (float) $this->withdrawals()->whereIn('status', ['pending', 'approved'])->sum('amount');
 
         return $this->walletBalance() - $reserved;
+    }
+
+    /**
+     * Where this person is on the way to becoming an active member:
+     *   registered         signed up, no open order
+     *   order_placed      an order is waiting for payment
+     *   payment_submitted they sent a payment and it is waiting for approval
+     *   active            a payment was approved: they now count as downline
+     */
+    /**
+     * The same three steps as activationStage(), but as a database filter (for lists too long to load whole).
+     * Only meaningful for people who are not active yet.
+     */
+    public function scopeAtStage(Builder $query, string $stage): Builder
+    {
+        $awaitingPayment = fn (Builder $o) => $o->where('status', 'pending_payment');
+        $paymentSent = fn (Builder $o) => $o->where('status', 'pending_payment')
+            ->whereHas('payment', fn (Builder $p) => $p->where('status', 'pending'));
+
+        return match ($stage) {
+            'registered' => $query->whereDoesntHave('orders', $awaitingPayment),
+            'payment_submitted' => $query->whereHas('orders', $paymentSent),
+            'order_placed' => $query->whereHas('orders', $awaitingPayment)->whereDoesntHave('orders', $paymentSent),
+            default => $query,
+        };
+    }
+
+    /** True once a payment of theirs was approved. Until then the portal only shows the plans to buy. */
+    public function hasBought(): bool
+    {
+        return $this->status === 'active';
+    }
+
+    public function activationStage(): string
+    {
+        if ($this->status === 'active') {
+            return 'active';
+        }
+
+        $orders = $this->relationLoaded('orders') ? $this->orders : $this->orders()->get();
+        $open = $orders->where('status', 'pending_payment');
+
+        if ($open->isEmpty()) {
+            return 'registered';
+        }
+
+        foreach ($open as $order) {
+            $payment = $order->relationLoaded('payment') ? $order->payment : $order->payment()->first();
+            if ($payment?->status === 'pending') {
+                return 'payment_submitted';
+            }
+        }
+
+        return 'order_placed';
     }
 
     /** Active this month = at least one own order placed in the current calendar month. */

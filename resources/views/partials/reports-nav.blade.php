@@ -14,18 +14,20 @@
     $repRegions = \App\Models\Region::orderBy('sort_order')->get();
     $repRegion = request()->integer('region') ?: null;
 @endphp
+{{-- The report tabs, grouped under the same class names the downloaded files use. --}}
 <nav class="rep-tabs" aria-label="Reports">
     @foreach ([
-        'admin.reports.overview' => 'Business overview',
-        'admin.reports.sales' => 'Sales & products',
-        'admin.reports.repurchase' => 'Repurchase',
-        'admin.reports.payouts' => 'Payouts',
-        'admin.reports.levels' => 'Level-wise income',
-        'admin.reports.pending' => 'Pending & cash',
-        'admin.reports.compliance' => 'Compliance / audit',
-    ] as $route => $label)
-        @continue(! auth()->user()->canAccessRoute($route))
-        <a href="{{ route($route, $repRegion ? ['region' => $repRegion] : []) }}" class="{{ request()->routeIs($route) ? 'active' : '' }}">{{ $label }}</a>
+        'Sales' => ['admin.reports.overview' => 'Business overview', 'admin.reports.sales' => 'Sales & products', 'admin.reports.repurchase' => 'Repurchase'],
+        'Payouts' => ['admin.reports.payouts' => 'Payouts', 'admin.reports.levels' => 'Level-wise income'],
+        'Compliance' => ['admin.reports.pending' => 'Pending & cash', 'admin.reports.compliance' => 'Compliance / audit'],
+        'Tax' => ['admin.reports.gst' => 'GST sales'],
+    ] as $class => $tabs)
+        @php $visible = collect($tabs)->filter(fn ($l, $r) => auth()->user()->canAccessRoute($r)); @endphp
+        @continue($visible->isEmpty())
+        <span class="small text-uppercase fw-semibold text-secondary align-self-center ps-2" style="font-size:.68rem; letter-spacing:.6px;">{{ $class }}</span>
+        @foreach ($visible as $route => $label)
+            <a href="{{ route($route, $repRegion ? ['region' => $repRegion] : []) }}" class="{{ request()->routeIs($route) ? 'active' : '' }}">{{ $label }}</a>
+        @endforeach
     @endforeach
 </nav>
 

@@ -23,6 +23,7 @@ class Order extends Model
             'gst_amount' => 'decimal:2',
             'bv' => 'decimal:2',
             'is_repurchase' => 'boolean',
+            'invoice_date' => 'date',
         ];
     }
 
@@ -44,6 +45,11 @@ class Order extends Model
     public function payment(): HasOne
     {
         return $this->hasOne(Payment::class);
+    }
+
+    public function creditNote(): HasOne
+    {
+        return $this->hasOne(CreditNote::class);
     }
 
     /**

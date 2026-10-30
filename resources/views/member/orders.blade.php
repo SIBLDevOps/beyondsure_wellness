@@ -122,6 +122,8 @@
                             <td class="text-end pe-3">
                                 @if ($order->status === 'pending_payment')
                                     <a href="{{ route('member.orders.pay', $order) }}" class="btn btn-sm btn-success"><i class="bi bi-credit-card me-1"></i>Pay now</a>
+                                @elseif (in_array($order->status, ['paid', 'settled'], true))
+                                    <a href="{{ route('member.orders.invoice', $order) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success"><i class="bi bi-receipt me-1"></i>Invoice</a>
                                 @else
                                     <span class="text-body-tertiary small"><i class="bi bi-check2-circle text-success me-1"></i>Confirmed</span>
                                 @endif

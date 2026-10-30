@@ -24,6 +24,7 @@ class MemberController extends Controller
             ->with(['sponsor', 'placementParent', 'legTotal', 'region'])
             ->when($request->region, fn ($q, $r) => $q->where('region_id', (int) $r))
             ->withCount('sponsoredMembers')
+            ->withCount(['sponsoredMembers as active_directs_count' => fn ($q) => $q->where('status', 'active')])
             ->withCount(['orders as paid_orders_count' => fn ($q) => $q->whereIn('status', ['paid', 'settled'])])
             ->withSum(['orders as personal_bv' => fn ($q) => $q->whereIn('status', ['paid', 'settled'])], 'bv')
             ->withSum(['orders as total_spent' => fn ($q) => $q->whereIn('status', ['paid', 'settled'])], 'amount')

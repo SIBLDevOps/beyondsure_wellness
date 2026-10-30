@@ -22,14 +22,22 @@ class PaymentController extends Controller
 
     public function verify(Payment $payment): RedirectResponse
     {
-        $this->payments->verify($payment, Auth::user());
+        try {
+            $this->payments->verify($payment, Auth::user());
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['payment' => $e->getMessage()]);
+        }
 
         return back()->with('status', 'Payment verified — order marked paid.');
     }
 
     public function reject(Payment $payment): RedirectResponse
     {
-        $this->payments->reject($payment, Auth::user());
+        try {
+            $this->payments->reject($payment, Auth::user());
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['payment' => $e->getMessage()]);
+        }
 
         return back()->with('status', 'Payment rejected.');
     }

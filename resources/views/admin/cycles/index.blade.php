@@ -3,7 +3,7 @@
 @section('title', 'Cycles')
 
 @section('content')
-    @php $finance = auth()->user()->canSeeFinance(); @endphp
+    @php $finance = auth()->user()->canSeeFinance() && ! ($hideTotals ?? false); @endphp
     @include('admin.partials.flow', ['current' => 'cycles'])
     <p class="text-secondary mb-3" style="max-width: 680px;">
         A cycle is the moment compensation actually gets calculated and posted to member wallets. The period
@@ -55,6 +55,9 @@
         <div class="card-header bg-light-subtle border-bottom py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div>
                 <h2 class="h6 mb-0 fw-semibold"><i class="bi bi-plus-circle text-primary me-1"></i>Create &amp; Schedule Compensation Cycle</h2>
+                @if (auth()->user()->canAccessRoute('admin.cycles.simulate') && ! auth()->user()->isRegionRestricted())
+                    <a href="{{ route('admin.cycles.simulate') }}" class="btn btn-sm btn-outline-primary mt-2"><i class="bi bi-calculator me-1"></i>Simulate the next cycle (changes nothing)</a>
+                @endif
                 <div class="text-body-tertiary small">
                     Approving a cycle runs Self, Sponsor, Level-Wise Matching, and Rank pool calculations on all unsettled paid orders.
                 </div>

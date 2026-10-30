@@ -1,6 +1,6 @@
 // BeyondSure Admin — custom Bootstrap theme (not the stock look)
 
-$primary:       #4f46e5; // indigo — sidebar / primary actions
+$primary:       #4f46e5; // indigo, the admin area colour (overridable in Website settings)
 $secondary:     #64748b; // slate
 $success:       #059669; // emerald — brand accent, positive states
 $info:          #0ea5e9; // sky
@@ -35,7 +35,7 @@ $enable-negative-margins: true;
 // ---- Layout ----
 
 .admin-sidebar {
-    background: linear-gradient(180deg, #1e1b4b 0%, #14123a 100%);
+    background: linear-gradient(180deg, var(--brand-900, #1e1b4b) 0%, var(--brand-950, #14123a) 100%);
     height: 100vh;
     max-height: 100vh;
     width: 256px;
@@ -71,7 +71,7 @@ $enable-negative-margins: true;
 }
 
 .admin-sidebar .nav-link {
-    color: #c7d2fe;
+    color: var(--brand-200, #c7d2fe);
     border-radius: .45rem;
     padding: .44rem .7rem;
     font-size: .84rem;
@@ -115,7 +115,7 @@ $enable-negative-margins: true;
     font-size: .65rem;
     text-transform: uppercase;
     letter-spacing: .06em;
-    color: rgba(199, 210, 254, .5);
+    color: rgba(255, 255, 255, .5);
     font-weight: 600;
     padding: .5rem .7rem .15rem;
     white-space: nowrap;

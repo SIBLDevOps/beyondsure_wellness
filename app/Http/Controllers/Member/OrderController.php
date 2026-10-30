@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Member;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Payment;
 use App\Services\PaymentService;
 use App\Services\RazorpayNotConfigured;
 use App\Services\RazorpayService;
@@ -33,7 +34,13 @@ class OrderController extends Controller
 
         $member = Auth::guard('member')->user();
 
+        // Where to send a manual payment, as set by the company (Admin -> Website -> Payment details). Empty ones are left out.
+        $payDetails = collect(array_keys(\App\Http\Controllers\Admin\SiteContentController::paymentFields()))
+            ->mapWithKeys(fn ($key) => [$key => trim((string) \App\Models\Setting::get($key, ''))])
+            ->filter()->all();
+
         return view('member.pay', [
+            'payDetails' => $payDetails,
             'order' => $order->load('payment', 'plan.products'),
             'razorpayConfigured' => $this->razorpay->isConfigured(),
             'razorpayKey' => config('services.razorpay.key'),
@@ -71,8 +78,25 @@ class OrderController extends Controller
             'billing_email.email' => 'Please enter a valid email address.',
         ]);
 
+        // Only an order that is still waiting for payment accepts one.
+        if ($order->status !== 'pending_payment') {
+            return back()->withErrors(['payment' => 'This order is no longer waiting for payment.']);
+        }
+
+        // One bank reference can only back one live payment. A reference whose payment was rejected can be tried again.
+        if (! empty($data['reference']) && Payment::where('order_id', '!=', $order->id)
+            ->whereRaw('LOWER(reference) = ?', [strtolower($data['reference'])])
+            ->whereIn('status', ['pending', 'verified'])->exists()) {
+            return back()->withInput()->withErrors(['reference' => 'This reference has already been used for another payment. Enter the reference of your own transaction.']);
+        }
+
         $order->update($this->billingFields($data));
-        $this->payments->submit($order, $data['method'], $data['reference'] ?? null);
+
+        try {
+            $this->payments->submit($order, $data['method'], $data['reference'] ?? null);
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['payment' => $e->getMessage()]);
+        }
 
         return redirect()->route('member.orders.index')->with('status', 'Payment submitted — awaiting admin verification.');
     }
@@ -151,7 +175,9 @@ class OrderController extends Controller
             return redirect()->route('member.orders.pay', $order)->withErrors(['payment' => 'Payment verification failed — please contact support.']);
         }
 
-        $this->payments->confirmGatewayPayment($order, $data['razorpay_payment_id']);
+        if (! $this->payments->confirmGatewayPayment($order, $data['razorpay_payment_id'])) {
+            return redirect()->route('member.orders.index')->with('status', 'This order has already been processed.');
+        }
 
         return redirect()->route('member.orders.index')->with('status', 'Payment successful — your order is confirmed!');
     }

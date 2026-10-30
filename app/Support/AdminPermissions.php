@@ -18,10 +18,10 @@ class AdminPermissions
     /** @var array<string, array<string, array{0: string, 1: string}>> group => key => [label, description] */
     public const GROUPS = [
         'Operations' => [
-            'members' => ['Members & network', 'View members, their profiles and genealogy trees.'],
+            'members' => ['Members & network', 'View members, their profiles and genealogy trees, and the Pending activation list (people who registered but have not paid).'],
             'regions' => ['Regions', 'See each region, its tree and invite link, and create or edit regions.'],
             'orders' => ['Orders', 'View all orders and cancel unpaid ones.'],
-            'payments' => ['Payments', 'Verify or reject payment submissions.'],
+            'payments' => ['Payments', 'Verify or reject payment submissions. Also opens the Pending activation list, to see who is still to pay.'],
             'cycles' => ['Cycles', 'Create and approve compensation cycles, which posts income to members. Money totals stay hidden without Finance access.'],
             'withdrawals' => ['Withdrawals', 'Approve, reject and mark member withdrawals paid.'],
             'dispatch' => ['Dispatch', 'Build and release payout batches.'],
@@ -30,6 +30,7 @@ class AdminPermissions
             'catalog' => ['Catalog — view only', 'See categories, products and plans. No cost prices, BV or margins.'],
             'catalog.manage' => ['Catalog — add & edit', 'Add, edit and delete categories and products. Plans also need Finance access, because price and BV are part of the money model.'],
             'messages' => ['Messages', 'Contact-form messages from the website.'],
+            'announcements' => ['Announcements', 'Post announcements to members and email them. Region-limited staff can only address their own regions.'],
             'content' => ['Website & testimonials', 'Change the brand, logo, homepage text, contact details and testimonials.'],
         ],
         'Operational reports' => [
@@ -48,10 +49,18 @@ class AdminPermissions
     private const ROUTE_MAP = [
         'admin.team.' => 'super',
         'admin.messages.' => 'messages',
+        'admin.announcements.' => 'announcements',
         'admin.members.' => 'members',
+        // "a|b" means either permission is enough. People who verify payments need to see who is still to pay.
+        'admin.activation.' => 'members|payments',
         'admin.regions.' => 'regions',
+        // Money documents: a credit note reverses a sale, so it needs Finance access (and must come before the general rule).
+        'admin.orders.credit-note' => 'finance',
+        'admin.refunds.' => 'finance',
         'admin.orders.' => 'orders',
         'admin.payments.' => 'payments',
+        // The simulation shows company-wide money figures and the compensation rules: Finance access, like the other money pages.
+        'admin.cycles.simulate' => 'finance',
         'admin.cycles.' => 'cycles',
         'admin.withdrawals.' => 'withdrawals',
         'admin.dispatch.' => 'dispatch',
@@ -62,6 +71,8 @@ class AdminPermissions
         'admin.reports.overview' => 'finance',
         'admin.reports.sales' => 'finance',
         'admin.reports.compliance' => 'finance',
+        'admin.reports.gst' => 'finance',
+        'admin.audit-log.' => 'super',
         'admin.reports.payouts' => 'finance',
         'admin.reports.levels' => 'finance',
         'admin.reports.pending' => 'reports.pending',
@@ -72,7 +83,10 @@ class AdminPermissions
     private const CATALOG = ['admin.categories.' => false, 'admin.products.' => false, 'admin.plans.' => true];
 
     /** Pages every signed-in staff member can reach. */
-    private const ALWAYS = ['admin.dashboard', 'admin.logout', 'admin.account.password', 'admin.account.password.update'];
+    private const ALWAYS = [
+        'admin.dashboard', 'admin.logout', 'admin.account.password', 'admin.account.password.update',
+        'admin.account.two-factor', 'admin.account.two-factor.enable', 'admin.account.two-factor.confirm', 'admin.account.two-factor.disable',
+    ];
 
     /** @return list<string> */
     public static function keys(): array

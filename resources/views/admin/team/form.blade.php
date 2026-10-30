@@ -150,6 +150,18 @@
                 </form>
             </div>
         </div>
+        @if ($subAdmin->hasTwoFactor())
+            <div class="card border p-3 mt-3 d-flex flex-row align-items-center justify-content-between gap-3 flex-wrap">
+                <div>
+                    <div class="fw-semibold"><i class="bi bi-shield-lock me-1 text-primary"></i>Two-factor sign-in is on</div>
+                    <div class="text-body-tertiary small" style="max-width: 560px;">If they lost their phone and recovery codes, reset it. They then sign in with their password alone and can switch it on again.</div>
+                </div>
+                <form method="POST" action="{{ route('admin.team.two-factor-reset', $subAdmin) }}" onsubmit="return confirm('Reset two-factor sign-in for this person?')">
+                    @csrf @method('PUT')
+                    <button class="btn btn-outline-danger"><i class="bi bi-shield-x me-1"></i>Reset two-factor</button>
+                </form>
+            </div>
+        @endif
     @endif
 
     <script>

@@ -53,7 +53,7 @@ class ProductController extends Controller
             'category_id' => ['required', 'exists:categories,id'],
             'name' => ['required', 'string', 'max:255'],
             'sku' => ['required', 'string', 'max:255', 'unique:products,sku,'.($ignoreId ?? 'NULL').',id'],
-            'description' => ['nullable', 'string'],
+            'description' => ['nullable', 'string', 'max:100000', \App\Support\RichText::maxText(2000)],
             'cost_price' => [auth()->user()->canSeeFinance() ? 'required' : 'nullable', 'numeric', 'min:0'],
             'sell_price' => ['required', 'numeric', 'min:0'],
             'gst_pct' => [auth()->user()->canSeeFinance() ? 'required' : 'nullable', 'numeric', 'min:0', 'max:100'],
@@ -75,6 +75,8 @@ class ProductController extends Controller
             'gst_pct.max' => 'GST percentage cannot exceed 100%.',
         ]);
 
+        // The description comes from a rich-text editor: keep only safe formatting. An empty editor means none.
+        $data['description'] = \App\Support\RichText::clean($data['description'] ?? '') ?: null;
         $data['is_active'] = $request->boolean('is_active', true);
         $data['gst_pct'] = ($data['gst_pct'] ?? null) !== null && $data['gst_pct'] !== '' ? $data['gst_pct'] : null;
 

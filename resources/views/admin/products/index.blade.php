@@ -55,7 +55,7 @@
                             <td class="ps-3">
                                 <div class="fw-semibold">{{ $product->name }}</div>
                                 @if ($product->description)
-                                    <div class="text-body-tertiary text-truncate" style="font-size: .72rem; max-width: 220px;">{{ $product->description }}</div>
+                                    <div class="text-body-tertiary text-truncate" style="font-size: .72rem; max-width: 220px;">{{ \App\Support\RichText::snippet($product->description, 120) }}</div>
                                 @endif
                             </td>
                             <td><span class="badge bg-light text-secondary border font-monospace">{{ $product->sku }}</span></td>

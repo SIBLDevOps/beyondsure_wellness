@@ -31,6 +31,7 @@ trait RedirectsAfterMemberAuth
             }
         }
 
-        return redirect()->route('member.dashboard');
+        // Nothing to show until they have bought: send them to the plans rather than a dashboard that would bounce them.
+        return redirect()->route($member->hasBought() ? 'member.dashboard' : 'member.plans.index');
     }
 }

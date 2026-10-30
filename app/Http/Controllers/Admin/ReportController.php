@@ -20,6 +20,30 @@ class ReportController extends Controller
         return $this->{$method}(...array_values($parameters));
     }
 
+    /** The monthly GST sales register (invoices and credit notes), for filing returns. */
+    public function gst(Request $request): View
+    {
+        $month = \App\Services\GstReportService::month($request->query('month'));
+        $result = app(\App\Services\GstReportService::class)->build($month, $request->integer('region') ?: null);
+
+        return view('admin.reports.gst', [
+            'month' => $month,
+            'rows' => $result['rows'],
+            'totals' => $result['totals'],
+            'igst' => \App\Models\Setting::get('inv_tax_type', 'cgst_sgst') === 'igst',
+        ]);
+    }
+
+    public function gstCsv(Request $request): StreamedResponse
+    {
+        $month = \App\Services\GstReportService::month($request->query('month'));
+        $rows = app(\App\Services\GstReportService::class)->build($month, $request->integer('region') ?: null)['rows']
+            ->map(fn ($r) => [$r['type'], $r['number'], $r['date'], $r['order'], $r['customer'], $r['mobile'], $r['region'],
+                number_format($r['taxable'], 2, '.', ''), number_format($r['cgst'], 2, '.', ''), number_format($r['sgst'], 2, '.', ''), number_format($r['igst'], 2, '.', ''), number_format($r['total'], 2, '.', ''), $r['against']]);
+
+        return $this->reports->csv($rows, ['Type', 'Number', 'Date', 'Order', 'Customer', 'Mobile', 'Region', 'Taxable value', 'CGST', 'SGST', 'IGST', 'Total', 'Against invoice']);
+    }
+
     public function overview(Request $request): View
     {
         ['from' => $from, 'to' => $to] = $this->reports->range($request->from, $request->to);

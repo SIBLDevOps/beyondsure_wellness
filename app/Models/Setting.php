@@ -9,19 +9,40 @@ class Setting extends Model
 {
     protected $fillable = ['key', 'value'];
 
+    /**
+     * A saved value is cached; a missing setting is NOT, so the default you pass is returned fresh every time. (An
+     * older version cached the default itself, which made an old default outlive a code change. The cache key carries
+     * a version so entries left behind by that version are ignored.)
+     */
     public static function get(string $key, mixed $default = null): mixed
     {
-        return Cache::rememberForever("setting:{$key}", function () use ($key, $default) {
-            $value = static::where('key', $key)->value('value');
+        $cached = Cache::get(self::cacheKey($key));
 
-            return $value ?? $default;
-        });
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $value = static::where('key', $key)->value('value');
+
+        if ($value === null) {
+            return $default;
+        }
+
+        Cache::forever(self::cacheKey($key), $value);
+
+        return $value;
     }
 
     public static function set(string $key, mixed $value): void
     {
         static::updateOrCreate(['key' => $key], ['value' => $value]);
+        Cache::forget(self::cacheKey($key));
         Cache::forget("setting:{$key}");
+    }
+
+    private static function cacheKey(string $key): string
+    {
+        return "setting.v2:{$key}";
     }
 
     /**

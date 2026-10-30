@@ -123,7 +123,8 @@ class FormValidationTest extends TestCase
             ]);
 
         $response->assertSessionHasNoErrors();
-        $response->assertRedirect(route('member.dashboard'));
+        // A brand-new member has not bought anything yet, so they land on the plans to buy, not a dashboard.
+        $response->assertRedirect(route('member.plans.index'));
 
         $newMember = Member::where('phone', '9876543210')->first();
         $this->assertNotNull($newMember);

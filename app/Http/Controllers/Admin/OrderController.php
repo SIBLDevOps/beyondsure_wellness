@@ -19,7 +19,7 @@ class OrderController extends Controller
         $regionId = $request->integer('region') ?: null;
 
         return view('admin.orders.index', [
-            'orders' => Order::with('member.region', 'plan', 'payment')
+            'orders' => Order::with(array_filter(['member.region', 'plan', 'payment', \Illuminate\Support\Facades\Schema::hasTable('credit_notes') ? 'creditNote' : null]))
                 ->when($regionId, fn ($q) => $q->whereHas('member', fn ($m) => $m->where('region_id', $regionId)))
                 ->latest()->paginate(25)->withQueryString(),
             'regions' => Region::orderBy('sort_order')->get(),
@@ -29,7 +29,11 @@ class OrderController extends Controller
 
     public function cancel(Order $order): RedirectResponse
     {
-        $this->orders->cancel($order);
+        try {
+            $this->orders->cancel($order);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         return back()->with('status', 'Order cancelled.');
     }

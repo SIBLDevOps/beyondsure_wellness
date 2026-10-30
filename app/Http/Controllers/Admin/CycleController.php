@@ -21,6 +21,9 @@ class CycleController extends Controller
             'cycles' => Cycle::orderByDesc('period_end')->paginate(15),
             'unsettledCount' => Order::where('status', 'paid')->whereNull('cycle_id')->count(),
             'unsettledBv' => Order::where('status', 'paid')->whereNull('cycle_id')->sum('bv'),
+            // A cycle covers every region at once, so its pool and payout totals are company-wide. Someone limited
+            // to some regions must not see figures that include regions they cannot open.
+            'hideTotals' => auth()->user()->isRegionRestricted(),
         ]);
     }
 
@@ -44,7 +47,11 @@ class CycleController extends Controller
 
     public function approve(Cycle $cycle): RedirectResponse
     {
-        $this->cycles->approve($cycle, Auth::user());
+        try {
+            $this->cycles->approve($cycle, Auth::user());
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['cycle' => $e->getMessage()]);
+        }
 
         if (! auth()->user()->canSeeFinance()) {
             return back()->with('status', 'Cycle approved — income has been posted to members.');

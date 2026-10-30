@@ -7,6 +7,7 @@
     <meta name="description" content="{{ Site::text('site_meta_description') }}">
     @include('partials.favicon')
     @vite('resources/css/app.css')
+    @include('partials.theme')
 </head>
 <body class="bg-white text-ink-800 antialiased">
 
@@ -88,10 +89,10 @@
                 <div class="absolute -inset-6 bg-brand-500/20 rounded-3xl blur-2xl"></div>
                 <div class="relative bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur">
                     <svg viewBox="0 0 400 340" class="w-full h-auto">
-                        <rect x="20" y="30" width="360" height="280" rx="20" fill="#0f2b26" stroke="#10b981" stroke-opacity="0.4"/>
-                        <circle cx="200" cy="140" r="70" fill="#059669" fill-opacity="0.35"/>
+                        <rect x="20" y="30" width="360" height="280" rx="20" fill="#0f2b26" stroke="var(--brand-500, #10b981)" stroke-opacity="0.4"/>
+                        <circle cx="200" cy="140" r="70" fill="var(--brand-600, #059669)" fill-opacity="0.35"/>
                         <path d="M170 140 l20 20 l40 -45" stroke="#6ee7b7" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                        <rect x="60" y="240" width="90" height="14" rx="7" fill="#34d399" fill-opacity="0.6"/>
+                        <rect x="60" y="240" width="90" height="14" rx="7" fill="var(--brand-400, #34d399)" fill-opacity="0.6"/>
                         <rect x="60" y="264" width="140" height="10" rx="5" fill="#ffffff" fill-opacity="0.2"/>
                         <rect x="250" y="240" width="90" height="14" rx="7" fill="#fbbf24" fill-opacity="0.7"/>
                         <rect x="250" y="264" width="90" height="10" rx="5" fill="#ffffff" fill-opacity="0.2"/>
@@ -216,7 +217,7 @@
                             <span class="self-start mb-2 text-[11px] font-semibold uppercase tracking-wide bg-sky-50 text-sky-700 border border-sky-200 rounded-full px-2 py-0.5">{{ $plan->region?->name }}</span>
                         @endif
                         <div class="font-bold text-lg text-ink-900">{{ $plan->name }}</div>
-                        <p class="text-xs text-ink-500 mt-1 min-h-[32px]">{{ $plan->description }}</p>
+                        <p class="text-xs text-ink-500 mt-1 min-h-[32px]">{{ \App\Support\RichText::snippet($plan->description, 140) }}</p>
                         <div class="mt-4">
                             <span class="text-3xl font-bold text-ink-900">₹{{ number_format($plan->price, 0) }}</span>
                         </div>

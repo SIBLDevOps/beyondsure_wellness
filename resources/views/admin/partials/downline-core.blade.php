@@ -136,19 +136,19 @@
         z-index: 2;
     }
     .genealogy-node:hover {
-        border-color: #4f46e5;
-        box-shadow: 0 8px 18px rgba(79, 70, 229, .14);
+        border-color: var(--brand-600, #059669);
+        box-shadow: 0 8px 18px rgba(var(--bs-primary-rgb, 5, 150, 105), .14);
         transform: translateY(-2px);
     }
     .genealogy-node-root {
-        border: 2px solid #4f46e5;
-        background: linear-gradient(180deg, #eef2ff 0%, #ffffff 42%);
+        border: 2px solid var(--brand-600, #059669);
+        background: linear-gradient(180deg, var(--brand-50, #ecfdf5) 0%, #ffffff 42%);
     }
     .genealogy-node.is-active-month {
-        border-top: 3px solid #059669;
+        border-top: 3px solid var(--brand-600, #059669);
     }
     .genealogy-node-root.is-active-month {
-        border-top: 3px solid #4f46e5;
+        border-top: 3px solid var(--brand-600, #059669);
     }
     .genealogy-node-vacant {
         width: 145px;

@@ -28,10 +28,19 @@ class PlanController extends Controller
             return view('admin.plans.basic', compact('plans', 'regions', 'regionId'));
         }
 
+        $costPct = (float) Setting::get('split_cost_pct', 40);
+
         return view('admin.plans.index', [
             'plans' => $plans,
             'regions' => $regions,
             'regionId' => $regionId,
+            // The summary strip at the top. "Needs attention" = an active plan whose product cost is above its limit.
+            'stats' => [
+                'total' => $plans->count(),
+                'active' => $plans->where('is_active', true)->count(),
+                'inactive' => $plans->where('is_active', false)->count(),
+                'attention' => $plans->filter(fn (Plan $p) => $p->is_active && $p->costForQty() > $p->price * $costPct / 100)->count(),
+            ],
             'costPct' => (float) Setting::get('split_cost_pct', 40),
             'poolPct' => (float) Setting::get('split_pool_pct', 40),
             'companyPct' => (float) Setting::get('split_company_pct', 20),
@@ -44,10 +53,44 @@ class PlanController extends Controller
         ]);
     }
 
-    public function create(): View
+    /** One-click Active / Inactive switch from the plans list. An inactive plan is hidden from new purchases. */
+    public function toggle(Plan $plan): RedirectResponse
     {
+        $plan->update(['is_active' => ! $plan->is_active]);
+
+        return back()->with('status', $plan->is_active
+            ? "{$plan->name} is active again and can be bought."
+            : "{$plan->name} is switched off. Members can no longer buy it; existing orders are not affected.");
+    }
+
+    /**
+     * "Clone": /plans/create?clone={id} opens this same form already filled from that plan, so every field can be
+     * changed before anything is saved. Nothing is written until the form is submitted.
+     */
+    public function create(Request $request): View
+    {
+        $plan = new Plan;
+        $source = null;
+
+        if ($request->has('clone')) {
+            $id = (string) $request->query('clone');
+            abort_unless(ctype_digit($id), 404);
+            // Region limits apply here too: staff cannot clone a plan from a region they do not have.
+            $source = Plan::with('products')->findOrFail((int) $id);
+
+            $plan->fill([
+                'region_id' => $source->region_id,
+                'name' => Str::limit($source->name, 248, '').' (copy)',
+                'description' => $source->description,
+                'price' => $source->price,
+                'bv' => $source->bv,
+                'is_active' => $source->is_active,
+            ]);
+        }
+
         return view('admin.plans.form', [
-            'plan' => new Plan,
+            'cloneFrom' => $source,
+            'plan' => $plan,
             'regions' => Region::orderBy('sort_order')->get(),
             'products' => Product::orderBy('name')->get(),
             'settings' => $this->compensationSettings(),
@@ -60,6 +103,11 @@ class PlanController extends Controller
         $data['slug'] = Str::slug($data['name']);
         $plan = Plan::create($data);
         $this->syncProducts($request, $plan);
+
+        // Tell the region's members about it, if asked (and only when it is actually on sale).
+        if ($request->boolean('notify_members') && $plan->is_active) {
+            \App\Jobs\SendBroadcastEmails::dispatch('plan', $plan->id);
+        }
 
         return redirect()->route('admin.plans.index')->with('status', 'Plan created.');
     }
@@ -121,7 +169,7 @@ class PlanController extends Controller
         $data = $request->validate([
             'region_id' => ['required', 'exists:regions,id'],
             'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'description' => ['nullable', 'string', 'max:100000', \App\Support\RichText::maxText(2000)],
             'price' => ['required', 'numeric', 'min:0'],
             'bv' => ['required', 'numeric', 'min:0'],
         ], [
@@ -135,6 +183,7 @@ class PlanController extends Controller
             'bv.min' => 'Business Volume (BV) cannot be negative.',
         ]);
 
+        $data['description'] = \App\Support\RichText::clean($data['description'] ?? '') ?: null;
         $data['is_active'] = $request->boolean('is_active', true);
 
         // A region-restricted sub-admin can only work inside the regions they were given.

@@ -17,8 +17,10 @@ class Site
     {
         // A page must still render with the built-in defaults if the settings table is not reachable
         // (for example right after a deploy, before the migrations have run).
+        // The default is applied here, never passed to Setting::get(): that helper remembers whatever default it is
+        // first given, so an old default would otherwise outlive a code change.
         try {
-            $value = Setting::get($key, $default);
+            $value = Setting::get($key);
         } catch (\Throwable) {
             $value = null;
         }

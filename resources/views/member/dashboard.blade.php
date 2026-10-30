@@ -3,6 +3,28 @@
 @section('title', 'Member Dashboard')
 
 @section('content')
+    {{-- What the company has announced --}}
+    @foreach (($announcements ?? collect()) as $a)
+        <div class="alert alert-primary d-flex gap-3 align-items-start py-2 mb-3" role="note">
+            <i class="bi bi-megaphone fs-5"></i>
+            <div>
+                <div class="fw-semibold">{{ $a->title }} <span class="text-body-tertiary fw-normal small ms-1">{{ $a->created_at->format('d M') }}</span></div>
+                <div class="small rich-text">{!! \App\Support\RichText::render($a->body) !!}</div>
+            </div>
+        </div>
+    @endforeach
+
+    @if (($pendingCount ?? 0) > 0)
+        <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-3 py-2 mb-4">
+            <div>
+                <i class="bi bi-hourglass-split me-1"></i>
+                <strong>{{ $pendingCount }} {{ \Illuminate\Support\Str::plural('person', $pendingCount) }} you invited {{ $pendingCount === 1 ? 'has' : 'have' }} not paid yet.</strong>
+                They join your team as soon as their payment is approved.
+            </div>
+            <a href="{{ route('member.pending.index') }}" class="btn btn-sm btn-warning flex-shrink-0"><i class="bi bi-chat-dots me-1"></i>See who and remind them</a>
+        </div>
+    @endif
+
     @if (! $onboarding['complete'])
         <div class="card border mb-4" style="border-color: var(--bs-primary-border-subtle) !important;">
             <div class="card-body p-3 p-md-4">
@@ -47,7 +69,7 @@
     @endif
 
     {{-- Welcome & Referral Share Banner --}}
-    <div class="card border mb-4" style="background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 65%);">
+    <div class="card border mb-4" style="background: linear-gradient(135deg, var(--brand-50, #ecfdf5) 0%, #ffffff 65%);">
         <div class="card-body py-3 px-3 px-md-4">
             <div class="row g-3 align-items-center">
                 <div class="col-lg-6">
@@ -81,13 +103,24 @@
                             <span class="small fw-semibold text-secondary"><i class="bi bi-share-fill text-success me-1"></i>Your Referral Link</span>
                             <span class="badge bg-success-subtle text-success font-monospace d-none d-sm-inline">Sponsor: {{ $member->member_code }}</span>
                         </div>
+                        @if ($invitePlans->isNotEmpty())
+                            <div class="mb-2">
+                                <label for="invitePlan" class="small text-secondary mb-1">Plan for the person you invite</label>
+                                <select id="invitePlan" class="form-select form-select-sm" data-base-url="{{ $referralUrl }}">
+                                    <option value="">Let them choose</option>
+                                    @foreach ($invitePlans as $p)
+                                        <option value="{{ $p->id }}" data-url="{{ route('register', ['sponsor' => $member->member_code, 'plan' => $p->id]) }}">{{ $p->name }} — ₹{{ number_format($p->totalPayable()) }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
                         <div class="d-flex flex-column flex-sm-row gap-2">
-                            <input type="text" readonly value="{{ $referralUrl }}" class="form-control form-control-sm bg-light font-monospace text-secondary text-truncate">
+                            <input type="text" readonly id="inviteLink" value="{{ $referralUrl }}" class="form-control form-control-sm bg-light font-monospace text-secondary text-truncate">
                             <div class="d-flex gap-2 flex-shrink-0">
                                 <button type="button" class="btn btn-sm btn-outline-secondary flex-grow-1 flex-sm-grow-0" data-copy-text="{{ $member->member_code }}">
                                     <i class="bi bi-person-badge me-1"></i>Code
                                 </button>
-                                <button type="button" class="btn btn-sm btn-success flex-grow-1 flex-sm-grow-0" data-copy-text="{{ $referralUrl }}">
+                                <button type="button" id="inviteCopy" class="btn btn-sm btn-success flex-grow-1 flex-sm-grow-0" data-copy-text="{{ $referralUrl }}">
                                     <i class="bi bi-clipboard-check me-1"></i>Link
                                 </button>
                             </div>
@@ -566,3 +599,20 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+<script>
+    // Picking a plan rewrites the invite link (and what the Link button copies) to carry that plan.
+    (function () {
+        const select = document.getElementById('invitePlan');
+        if (!select) return;
+        const input = document.getElementById('inviteLink');
+        const copy = document.getElementById('inviteCopy');
+        select.addEventListener('change', function () {
+            const url = select.selectedOptions[0].dataset.url || select.dataset.baseUrl;
+            input.value = url;
+            copy.setAttribute('data-copy-text', url);
+        });
+    })();
+</script>
+@endpush

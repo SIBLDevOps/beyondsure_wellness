@@ -27,6 +27,8 @@ class MemberDashboardController extends Controller
         $totalEarned = (float) $member->ledgerEntries()->where('amount', '>', 0)->sum('amount');
 
         return view('member.dashboard', [
+            // Announcements need their table; until the database update has been run the dashboard simply shows none.
+            'announcements' => \Illuminate\Support\Facades\Schema::hasTable('announcements') ? \App\Models\Announcement::visibleTo($member)->latest()->limit(3)->get() : collect(),
             'onboarding' => app(\App\Services\OnboardingService::class)->progress($member),
             'member' => $member,
             'walletBalance' => $member->walletBalance(),
@@ -40,8 +42,12 @@ class MemberDashboardController extends Controller
             'personalBv' => (float) $member->orders()->whereIn('status', ['paid', 'settled'])->sum('bv'),
             'orderCount' => $member->orders()->whereIn('status', ['paid', 'settled'])->count(),
             'pendingOrderCount' => $member->orders()->where('status', 'pending_payment')->count(),
-            'directCount' => $member->sponsoredMembers()->count(),
+            // Only people whose payment was approved are real directs; the rest are "pending" until they pay.
+            'directCount' => $member->sponsoredMembers()->where('status', 'active')->count(),
+            'pendingCount' => $member->sponsoredMembers()->where('status', '!=', 'active')->count(),
             'activeDirectCount' => $member->sponsoredMembers()->where('status', 'active')->count(),
+            // Plans the sponsor can pick for the person they invite: this region's active plans only.
+            'invitePlans' => \App\Models\Plan::where('region_id', $member->region_id)->where('is_active', true)->orderBy('price')->get(),
             'legTotal' => $member->legTotal,
             'recentOrders' => $member->orders()->with('plan')->latest()->limit(5)->get(),
             'recentLedger' => $member->ledgerEntries()->latest()->limit(8)->get(),

@@ -69,6 +69,12 @@
                     You are joining your sponsor's <strong class="uppercase">{{ $joinSide }}</strong> leg
                 </p>
             @endif
+            @if ($sponsorLocked ?? null)
+                {{-- Came through an invite link: the sponsor is fixed by the link and cannot be changed here. --}}
+                <input id="sponsor_code" name="sponsor_code" type="text" value="{{ $sponsorLocked->member_code }}" readonly aria-readonly="true"
+                    class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-100 text-slate-600 cursor-not-allowed px-3.5 py-2.5 text-sm uppercase font-mono">
+                <p class="text-xs text-slate-500 mt-1"><i class="bi bi-lock-fill"></i> Invited by <strong>{{ $sponsorLocked->name }}</strong> ({{ $sponsorLocked->member_code }}). This comes from the link you opened and cannot be changed.</p>
+            @else
             <input id="sponsor_code" name="sponsor_code" type="text" value="{{ old('sponsor_code', $sponsor ?? '') }}" placeholder="e.g. BSW-1001" @required($sponsorRequired ?? false)
                 class="mt-1 w-full rounded-lg border @error('sponsor_code') border-red-500 focus:border-red-500 focus:ring-red-500 @else border-slate-300 focus:border-emerald-500 focus:ring-emerald-500 @enderror px-3.5 py-2.5 text-sm uppercase font-mono transition">
             @if ($sponsorRequired ?? false)
@@ -76,8 +82,36 @@
             @else
                 <p class="text-xs text-slate-500 mt-1">Leave blank to register directly under the company in your region.</p>
             @endif
+            @endif
             @error('sponsor_code') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
         </div>
+
+        {{-- Which plan? The person pays for it right after the OTP; they count in a team only once the payment is approved. --}}
+        @if ($planLocked ?? null)
+            <div>
+                <span class="block text-sm font-medium text-slate-700">Your plan</span>
+                <input type="hidden" name="plan_id" value="{{ $planLocked->id }}">
+                <div class="mt-1 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-sm text-slate-700">
+                    <span class="font-medium">{{ $planLocked->name }}</span>
+                    <span>₹{{ number_format($planLocked->totalPayable()) }} <span class="text-xs text-slate-500">incl. GST</span></span>
+                </div>
+                <p class="text-xs text-slate-500 mt-1"><i class="bi bi-lock-fill"></i> Chosen by your sponsor. You will pay for it right after verifying your mobile number.</p>
+                @error('plan_id') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+            </div>
+        @elseif (($plans ?? collect())->isNotEmpty())
+            <div>
+                <label for="plan_id" class="block text-sm font-medium text-slate-700">Which plan do you want to buy? <span class="text-rose-500">*</span></label>
+                <select id="plan_id" name="plan_id" required
+                    class="mt-1 w-full rounded-lg border @error('plan_id') border-red-500 @else border-slate-300 @enderror px-3.5 py-2.5 text-sm bg-white">
+                    <option value="">Choose a plan</option>
+                    @foreach ($plans as $p)
+                        <option value="{{ $p->id }}" @selected((int) old('plan_id', $selectedPlan ?? 0) === $p->id)>{{ $p->name }} — ₹{{ number_format($p->totalPayable()) }} (incl. GST){{ ($regions ?? collect())->count() > 1 && ! ($region ?? null) ? ' · '.$p->region?->name : '' }}</option>
+                    @endforeach
+                </select>
+                <p class="text-xs text-slate-500 mt-1">You go straight to payment after verifying your mobile number. You join your sponsor&rsquo;s team once your payment is approved.</p>
+                @error('plan_id') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+            </div>
+        @endif
 
         <button type="submit"
             class="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2.5 transition">

@@ -27,10 +27,10 @@ class DownlineController extends Controller
 
         return view('member.downline', [
             'member' => $member,
-            'tree' => $this->network->buildTree($member, $depth),
+            'tree' => $this->network->buildTree($member, $depth, activeOnly: true),
             'depth' => $depth,
             'legTotal' => $member->legTotal,
-            'levelBreakdown' => $this->network->levelBreakdown($member, $depth),
+            'levelBreakdown' => $this->network->levelBreakdown($member, $depth, activeOnly: true),
         ]);
     }
 
@@ -40,7 +40,9 @@ class DownlineController extends Controller
         $nowMonth = now()->month;
         $nowYear = now()->year;
 
+        // Only people whose payment was approved are downline. The rest are on the Pending page.
         $directs = Member::where('sponsor_id', $member->id)
+            ->where('status', 'active')
             ->with(['placementParent', 'legTotal'])
             ->withCount('sponsoredMembers')
             ->withCount(['orders as paid_orders_count' => fn ($q) => $q->whereIn('status', ['paid', 'settled'])])
@@ -63,7 +65,7 @@ class DownlineController extends Controller
         $depth = (int) $request->input('depth', 7);
         $depth = max(2, min(12, $depth));
         $cascadeDepth = (int) Setting::get('cascade_depth', 7);
-        $levels = $this->network->levelBreakdown($member, $depth);
+        $levels = $this->network->levelBreakdown($member, $depth, activeOnly: true);
 
         return view('member.levels', [
             'levels' => $levels,
@@ -76,5 +78,29 @@ class DownlineController extends Controller
             'totalMatching' => collect($levels)->sum('matching_income'),
             'totalLevelIncome' => collect($levels)->sum('total_income'),
         ]);
+    }
+
+    /**
+     * The people this member invited who have not paid yet, each with the step they are at, the plan they chose and a
+     * ready-made WhatsApp reminder. They join the team the moment their payment is approved.
+     */
+    public function pending(): View
+    {
+        $member = Auth::guard('member')->user();
+        $brand = \App\Support\Site::name();
+
+        $people = Member::where('sponsor_id', $member->id)
+            ->where('status', '!=', 'active')
+            ->with(['interestedPlan', 'orders.payment', 'orders.plan'])
+            ->latest()
+            ->get()
+            ->each(function (Member $m) use ($brand) {
+                $m->stage = $m->activationStage();
+                $plan = $m->orders->where('status', 'pending_payment')->first()?->plan ?? $m->interestedPlan;
+                $m->planName = $plan?->name;
+                $m->reminderUrl = \App\Support\Reminder::whatsappUrl($m, $plan?->name, $brand);
+            });
+
+        return view('member.pending', ['people' => $people]);
     }
 }

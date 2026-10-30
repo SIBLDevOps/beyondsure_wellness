@@ -109,12 +109,22 @@ class RegistrationLegTest extends TestCase
             ->assertSessionHasNoErrors();
     }
 
-    public function test_the_first_ever_member_can_register_without_a_sponsor_even_when_required(): void
+    public function test_the_first_member_of_an_empty_region_needs_no_sponsor_even_when_required(): void
     {
         Setting::set('require_sponsor', 1);
 
         $this->post(route('register.send'), ['name' => 'Founder', 'phone' => '9876543214'])
             ->assertSessionHasNoErrors();
+    }
+
+    public function test_the_empty_register_form_shows_the_sponsor_as_optional_but_a_region_with_people_requires_it(): void
+    {
+        Setting::set('require_sponsor', 1);
+
+        $this->get(route('register'))->assertOk()->assertDontSee('A sponsor code is required');
+
+        $this->member('BSSPON009');
+        $this->get(route('register'))->assertOk()->assertSee('A sponsor code is required');
     }
 
     public function test_register_form_marks_the_sponsor_required_and_shows_the_chosen_leg(): void
@@ -125,7 +135,12 @@ class RegistrationLegTest extends TestCase
         $this->get(route('register', ['sponsor' => 'BSSPON008', 'side' => 'right']))
             ->assertOk()
             ->assertSee('name="side" value="right"', false)
-            ->assertSee('A sponsor code is required');
+            ->assertSee('Invited by') // the sponsor from the link is filled in and locked
+            ->assertSee('BSSPON008');
+
+        // Without a link the same setting still marks the sponsor field as required.
+        $this->flushSession();
+        $this->get(route('register'))->assertOk()->assertSee('A sponsor code is required');
     }
 
     public function test_admin_can_switch_the_required_sponsor_rule_on_and_off(): void

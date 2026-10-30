@@ -6,12 +6,16 @@
     <title>@yield('title', 'Admin') — {{ Site::name() }}</title>
     @include('partials.favicon')
     @vite(['resources/sass/admin.scss', 'resources/js/admin.js'])
+    @include('partials.theme', ['area' => 'admin'])
     {{-- Lets the content column shrink to the screen; without it a wide child (a big team tree) stretches the whole page. --}}
     <style>.min-w-0 { min-width: 0 !important; } .brand-logo { height: 34px; width: auto; max-width: 170px; object-fit: contain; }</style>
+    @stack('styles')
 </head>
 <body>
     @php
         $unreadMessages = \App\Models\ContactMessage::whereNull('read_at')->count();
+        // Registered but not yet paid (region limits apply automatically for region-limited staff).
+        $pendingActivation = \App\Models\Member::where('status', '!=', 'active')->count();
         $navSections = [
             'Overview' => [
                 'admin.dashboard' => ['Dashboard', 'bi-grid-1x2', null],
@@ -25,6 +29,7 @@
             'Transactions' => [
                 'admin.orders.index' => ['Orders', 'bi-bag-check', null],
                 'admin.payments.index' => ['Payments', 'bi-credit-card', null],
+                'admin.refunds.index' => ['Refunds', 'bi-arrow-counterclockwise', null],
                 'admin.cycles.index' => ['Cycles', 'bi-arrow-repeat', null],
             ],
             'Payouts' => [
@@ -34,21 +39,24 @@
             'Network' => [
                 'admin.regions.index' => ['Regions', 'bi-geo-alt', null],
                 'admin.members.index' => ['Members', 'bi-people', null],
+                'admin.activation.index' => ['Pending activation', 'bi-hourglass-split', $pendingActivation ?: null],
                 'admin.reports.overview' => ['Reports', 'bi-bar-chart-line', null],
             ],
             'Content & Config' => [
                 'admin.messages.index' => ['Messages', 'bi-envelope', $unreadMessages ?: null],
+                'admin.announcements.index' => ['Announcements', 'bi-megaphone', null],
                 'admin.site-content.edit' => ['Website', 'bi-globe2', null],
                 'admin.testimonials.index' => ['Testimonials', 'bi-star', null],
                 'admin.settings.edit' => ['Settings', 'bi-gear', null],
                 'admin.team.index' => ['Sub-admins', 'bi-person-badge', null],
+                'admin.audit-log.index' => ['Audit log', 'bi-journal-text', null],
             ],
         ];
 
         // Show each person only what they're allowed to open. "Reports" opens the first report
         // they have access to (the overview is for profit-report holders only).
         $staff = auth()->user();
-        $reportRoutes = ['admin.reports.overview', 'admin.reports.sales', 'admin.reports.payouts', 'admin.reports.levels', 'admin.reports.pending', 'admin.reports.repurchase', 'admin.reports.compliance'];
+        $reportRoutes = ['admin.reports.overview', 'admin.reports.sales', 'admin.reports.payouts', 'admin.reports.levels', 'admin.reports.pending', 'admin.reports.repurchase', 'admin.reports.compliance', 'admin.reports.gst'];
         $navSections = collect($navSections)->map(function ($items) use ($staff, $reportRoutes) {
             $visible = [];
             foreach ($items as $route => $meta) {
@@ -72,7 +80,7 @@
         <aside class="admin-sidebar d-none d-lg-flex flex-column p-3 flex-shrink-0 sticky-top" style="height: 100vh; max-height: 100vh;">
             <div class="d-flex align-items-center justify-content-between mb-3 px-1 flex-shrink-0">
                 <span class="brand">@include('partials.brand', ['accent' => 'accent', 'img' => 'brand-logo', 'dark' => true])</span>
-                <span class="badge bg-white bg-opacity-10 text-indigo-100 small">Admin</span>
+                <span class="badge bg-white bg-opacity-10 text-white small">Admin</span>
             </div>
 
             <div class="admin-profile-card mb-2 flex-shrink-0">
@@ -170,6 +178,7 @@
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow-sm">
                             <li><a class="dropdown-item" href="{{ route('admin.account.password') }}"><i class="bi bi-key me-2"></i>Change password</a></li>
+                            <li><a class="dropdown-item" href="{{ route('admin.account.two-factor') }}"><i class="bi bi-shield-lock me-2"></i>Two-factor sign-in</a></li>
                             <li><a class="dropdown-item" href="{{ route('home') }}" target="_blank"><i class="bi bi-box-arrow-up-right me-2"></i>View site</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
@@ -187,6 +196,12 @@
                 @if (session('status'))
                     <div class="alert alert-success d-flex align-items-center gap-2 py-2" role="alert">
                         <i class="bi bi-check-circle"></i> {{ session('status') }}
+                    </div>
+                @endif
+
+                @if (session('error'))
+                    <div class="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i> {{ session('error') }}
                     </div>
                 @endif
 

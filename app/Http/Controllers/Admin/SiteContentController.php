@@ -21,6 +21,9 @@ class SiteContentController extends Controller
         'brand' => ['Brand', 'bi-stars', 'The name and tagline shown in the header, sign-in pages and the member and admin areas.', [
             'site_name' => ['Brand name', 'BeyondSure+', 'text'],
             'site_tagline' => ['Tagline', 'Wellness & Protection Plans', 'text'],
+            'site_primary_color' => ['Brand colour', '#059669', 'color'],
+            'site_admin_color' => ['Admin panel colour', '#4f46e5', 'color'],
+            'site_soft_surface' => ['Page background', '0', 'surface'],
         ]],
         'hero' => ['Homepage top section', 'bi-window-desktop', 'The big banner visitors see first.', [
             'site_hero_badge' => ['Small badge text', 'Wellness & Protection, Together', 'text'],
@@ -62,6 +65,38 @@ class SiteContentController extends Controller
         ]],
     ];
 
+    /**
+     * Where members send money for a manual (UPI / bank) payment. Kept apart from GROUPS so it is never read by the
+     * public homepage, and only people with Finance access can see or change it: pointing members' money at another
+     * account is exactly what a bad actor would try.
+     */
+    public const PAYMENT = ['Payment details', 'bi-bank', 'Shown to members on the checkout page when they pay by UPI or bank transfer. Leave a field empty to hide it.', [
+        'pay_upi_id' => ['UPI ID', '', 'text'],
+        'pay_account_name' => ['Account holder name', '', 'text'],
+        'pay_bank_name' => ['Bank name', '', 'text'],
+        'pay_account_number' => ['Account number', '', 'text'],
+        'pay_ifsc' => ['IFSC code', '', 'text'],
+        'pay_note' => ['Note for members', '', 'textarea'],
+    ]];
+
+    /**
+     * The company's legal details printed on every tax invoice. Finance access only, like the payment details, and
+     * kept out of GROUPS so the public homepage never reads them.
+     */
+    public const INVOICE = ['Invoice details', 'bi-receipt-cutoff', 'Printed on every invoice, next to your logo. Without a GSTIN the document is titled "Invoice" instead of "Tax Invoice".', [
+        'inv_legal_name' => ['Legal company name', '', 'text'],
+        'inv_gstin' => ['GSTIN', '', 'text'],
+        'inv_pan' => ['PAN', '', 'text'],
+        'inv_address' => ['Registered address', '', 'textarea'],
+        'inv_state' => ['State', '', 'text'],
+        'inv_tax_type' => ['GST shown as', 'cgst_sgst', 'taxtype'],
+        'inv_prefix' => ['Invoice number prefix', 'INV', 'text'],
+        'inv_terms' => ['Terms and conditions', '', 'textarea'],
+    ]];
+
+    /** The two colour settings: the website, sign-in pages and member area, and the admin panel. */
+    public const COLOUR_KEYS = ['site_primary_color', 'site_admin_color'];
+
     /** The upload slots: key => [label, hint, allowed types, max KB] */
     public const IMAGES = [
         'site_logo' => ['Logo', 'Shown on light backgrounds: the public header and the sign-in pages.', 'png,jpg,jpeg,webp,gif', 2048],
@@ -82,12 +117,33 @@ class SiteContentController extends Controller
         return $flat;
     }
 
+    /** key => [label, default] for the payment details. */
+    public static function paymentFields(): array
+    {
+        return collect(self::PAYMENT[3])->map(fn ($f) => [$f[0], $f[1]])->all();
+    }
+
+    /** key => [label, default] for the invoice details. */
+    public static function invoiceFields(): array
+    {
+        return collect(self::INVOICE[3])->map(fn ($f) => [$f[0], $f[1]])->all();
+    }
+
     public function edit(): View
     {
-        $values = collect(self::fields())->mapWithKeys(fn ($f, $key) => [$key => Setting::get($key, $f[1])]);
+        $groups = self::GROUPS;
+        $fields = self::fields();
+
+        if (request()->user()?->canSeeFinance()) {
+            $groups['payment'] = self::PAYMENT;
+            $groups['invoice'] = self::INVOICE;
+            $fields += self::paymentFields() + self::invoiceFields();
+        }
+
+        $values = collect($fields)->mapWithKeys(fn ($f, $key) => [$key => (Setting::get($key) ?? $f[1])]);
 
         return view('admin.site-content.edit', [
-            'groups' => self::GROUPS,
+            'groups' => $groups,
             'images' => self::IMAGES,
             'values' => $values,
             'imageUrls' => [
@@ -103,19 +159,82 @@ class SiteContentController extends Controller
         $rules = collect(self::fields())->mapWithKeys(fn ($f, $key) => [$key => ['nullable', 'string', 'max:2000']])->all();
         $rules['site_name'] = ['required', 'string', 'max:60'];
 
+        // Payment details: only for people with Finance access. For everyone else these inputs are ignored entirely.
+        $finance = (bool) $request->user()?->canSeeFinance();
+        if ($finance) {
+            $request->merge([
+                'pay_ifsc' => strtoupper(trim((string) $request->input('pay_ifsc', ''))),
+                'inv_gstin' => strtoupper(trim((string) $request->input('inv_gstin', ''))),
+                'inv_pan' => strtoupper(trim((string) $request->input('inv_pan', ''))),
+            ]);
+            $rules += [
+                'inv_legal_name' => ['nullable', 'string', 'max:150'],
+                'inv_gstin' => ['nullable', 'regex:/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/'],
+                'inv_pan' => ['nullable', 'regex:/^[A-Z]{5}\d{4}[A-Z]$/'],
+                'inv_address' => ['nullable', 'string', 'max:500'],
+                'inv_state' => ['nullable', 'string', 'max:60'],
+                'inv_tax_type' => ['nullable', 'in:cgst_sgst,igst'],
+                'inv_prefix' => ['nullable', 'regex:/^[A-Za-z0-9\-]{1,10}$/'],
+                'inv_terms' => ['nullable', 'string', 'max:1000'],
+                'pay_upi_id' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._\-]{2,64}@[A-Za-z0-9]{2,32}$/'],
+                'pay_account_name' => ['nullable', 'string', 'max:120'],
+                'pay_bank_name' => ['nullable', 'string', 'max:120'],
+                'pay_account_number' => ['nullable', 'regex:/^\d{6,20}$/'],
+                'pay_ifsc' => ['nullable', 'regex:/^[A-Z]{4}0[A-Z0-9]{6}$/'],
+                'pay_note' => ['nullable', 'string', 'max:500'],
+            ];
+        }
+        // Links go into href attributes on the public site, so only real web addresses are accepted
+        // (a "javascript:" or "data:" address would run code when a visitor clicks it).
+        // The brand colour is written into the stylesheet, so it must be a real hex value, and dark enough for white text.
+        // The same applies to the admin panel colour. An empty box is allowed and means "back to the default".
+        foreach (self::COLOUR_KEYS as $colourKey) {
+            $rules[$colourKey] = ['nullable', 'string', function (string $attribute, mixed $value, \Closure $fail) {
+                $hex = \App\Support\Theme::normalize((string) $value);
+                if ($hex === null) {
+                    $fail('Enter a colour like #059669 (a # followed by 3 or 6 letters or digits).');
+                } elseif (! \App\Support\Theme::isUsable($hex)) {
+                    $fail('That colour is too light. White text on it would be hard to read, so pick a darker one.');
+                }
+            }];
+        }
+        $rules['site_soft_surface'] = ['nullable', 'in:0,1'];
+        foreach (['site_facebook_url', 'site_instagram_url', 'site_twitter_url'] as $urlKey) {
+            $rules[$urlKey] = ['nullable', 'url:http,https', 'max:255'];
+        }
+
         foreach (self::IMAGES as $key => [, , $types, $maxKb]) {
             $rules[$key] = ['nullable', 'file', 'image', 'mimes:'.$types, 'max:'.$maxKb];
         }
 
         $data = $request->validate($rules, [
             'site_name.required' => 'The brand name cannot be empty.',
+            'inv_gstin.regex' => 'A GSTIN is 15 characters, for example 24ABCDE1234F1Z5.',
+            'inv_pan.regex' => 'A PAN is 5 letters, 4 digits and 1 letter, for example ABCDE1234F.',
+            'inv_tax_type.in' => 'Choose either CGST + SGST or IGST.',
+            'inv_prefix.regex' => 'The prefix can have up to 10 letters, digits or dashes, and no spaces.',
+            'pay_upi_id.regex' => 'Enter a UPI ID like name@bank.',
+            'pay_account_number.regex' => 'The account number must be 6 to 20 digits, with no spaces.',
+            'pay_ifsc.regex' => 'An IFSC code is 4 letters, a 0, then 6 letters or digits (for example HDFC0001234).',
+            '*_url.url' => 'Enter a full web address starting with https:// (or leave it empty).',
             '*.mimes' => 'That file type is not allowed. Use a PNG, JPG, WEBP or GIF image.',
             '*.image' => 'The file must be an image.',
             '*.max' => 'That image is too large.',
         ]);
 
+        // Store the colour in one clean form; an empty box puts the default brand colour back.
+        foreach (self::COLOUR_KEYS as $colourKey) {
+            $data[$colourKey] = \App\Support\Theme::normalize((string) ($data[$colourKey] ?? '')) ?? '';
+        }
+
         foreach (array_keys(self::fields()) as $key) {
             Setting::set($key, $data[$key] ?? '');
+        }
+
+        if ($finance) {
+            foreach (array_keys(self::paymentFields() + self::invoiceFields()) as $key) {
+                Setting::set($key, $data[$key] ?? '');
+            }
         }
 
         foreach (array_keys(self::IMAGES) as $key) {

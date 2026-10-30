@@ -28,7 +28,8 @@ class ContactController extends Controller
             'message.required' => 'Please enter your message.',
         ]);
 
-        ContactMessage::create($data);
+        $message = ContactMessage::create($data);
+        app(\App\Services\MemberMailer::class)->contactMessage($message);
 
         return back()->with('status', 'Thanks — your message has been sent. Our team will get back to you shortly.')
             ->withFragment('contact');

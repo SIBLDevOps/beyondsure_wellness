@@ -4,6 +4,20 @@
 
 @section('content')
     @error('plan') <div class="alert alert-danger py-2">{{ $message }}</div> @enderror
+
+    @if (! auth('member')->user()->hasBought())
+        @php $waiting = auth('member')->user()->orders()->where('status', 'pending_payment')->latest()->first(); @endphp
+        @if ($waiting)
+            <div class="alert alert-warning d-flex flex-wrap gap-2 align-items-center justify-content-between" role="status">
+                <div><i class="bi bi-hourglass-split me-1"></i><strong>Complete your payment</strong> for order {{ $waiting->order_code }} to activate your account.</div>
+                <a href="{{ route('member.orders.pay', $waiting) }}" class="btn btn-sm btn-warning">Pay now</a>
+            </div>
+        @endif
+        <div class="alert alert-success d-flex gap-2 align-items-start" role="status">
+            <i class="bi bi-stars fs-5"></i>
+            <div><strong>Choose a plan to get started.</strong> Your wallet, team and earnings open as soon as your first payment is approved.</div>
+        </div>
+    @endif
     <p class="text-secondary mb-3">
         Pick a wellness plan bundle — you'll confirm billing and complete payment on the next step.
         @if ($region ?? null)<span class="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1"><i class="bi bi-geo-alt me-1"></i>{{ $region->name }} region plans</span>@endif
@@ -35,7 +49,7 @@
                         <tr>
                             <td>
                                 <div class="fw-semibold">{{ $plan->name }}</div>
-                                <div class="text-body-tertiary small">{{ $plan->description }}</div>
+                                <div class="text-body-tertiary small">{{ \App\Support\RichText::snippet($plan->description, 160) }}</div>
                             </td>
                             <td>
                                 <div class="d-flex flex-wrap gap-1">
@@ -79,7 +93,7 @@
                     @endif
                     <div class="card-body d-flex flex-column {{ $i === 2 ? 'pt-0' : '' }}">
                         <div class="fw-semibold fs-5">{{ $plan->name }}</div>
-                        <p class="text-secondary small mt-1">{{ $plan->description }}</p>
+                        <div class="text-secondary small mt-1 rich-text">{!! \App\Support\RichText::render($plan->description) !!}</div>
 
                         <ul class="list-unstyled small text-secondary mb-3">
                             @foreach ($plan->products as $product)

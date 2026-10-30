@@ -22,6 +22,9 @@ class OrderService
         if ($member->region_id !== $plan->region_id) {
             throw new \DomainException('This plan is not available in your region.');
         }
+        if (! $plan->is_active) {
+            throw new \DomainException('This plan is no longer available.');
+        }
         if (! $plan->region?->is_active) {
             throw new \DomainException('Your region is not taking new orders right now.');
         }
@@ -33,7 +36,7 @@ class OrderService
         // having transacted before.
         $isRepurchase = Order::where('member_id', $member->id)->whereIn('status', ['paid', 'settled'])->exists();
 
-        return Order::create([
+        $order = Order::create([
             'order_code' => 'ORD-'.strtoupper(Str::random(8)),
             'member_id' => $member->id,
             'plan_id' => $plan->id,
@@ -44,13 +47,26 @@ class OrderService
             'status' => 'pending_payment',
             'is_repurchase' => $isRepurchase,
         ]);
+
+        app(MemberMailer::class)->orderPlaced($order);
+
+        return $order;
     }
 
-    /** Refuses to touch a settled order — reversing settled income is out of scope (see spec §6). */
+    /**
+     * Only an order still waiting for payment is cancelled here. A paid order already has an invoice, so it is reversed
+     * with a credit note (CreditNoteService). A settled one has had income paid out and is not reversed at all.
+     */
     public function cancel(Order $order): void
     {
         if ($order->status === 'settled') {
             throw new \RuntimeException('Cannot cancel an order that has already been settled into a cycle.');
+        }
+        if ($order->status === 'paid') {
+            throw new \RuntimeException('This order is paid and has an invoice. Reverse it with a credit note instead.');
+        }
+        if ($order->status === 'cancelled') {
+            throw new \RuntimeException('This order is already cancelled.');
         }
 
         $order->update(['status' => 'cancelled']);

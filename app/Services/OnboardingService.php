@@ -18,7 +18,8 @@ class OnboardingService
     {
         $paid = (int) ($member->paid_orders_count ?? $member->orders()->whereIn('status', ['paid', 'settled'])->count());
         $awaiting = $member->orders()->where('status', 'pending_payment')->exists();
-        $directs = (int) ($member->sponsored_members_count ?? $member->sponsoredMembers()->count());
+        // A direct only counts once their payment was approved (people who merely registered are still "pending").
+        $directs = (int) ($member->active_directs_count ?? $member->sponsoredMembers()->where('status', 'active')->count());
         $earned = $member->ledgerEntries()->where('amount', '>', 0)->exists();
 
         return [

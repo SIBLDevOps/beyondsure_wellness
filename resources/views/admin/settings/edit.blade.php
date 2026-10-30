@@ -89,8 +89,8 @@
                             <div>
                                 <label class="fw-semibold small mb-1 d-block" for="require_sponsor">Sponsor code is required to register</label>
                                 <div class="field-hint mt-0" style="max-width: 56ch;">
-                                    When on, sign-ups with the sponsor field blank are refused. The very first member is exempt while the
-                                    network is empty, so someone can always start it.
+                                    When on, every sign-up must carry a sponsor code. The very first member of a region is exempt (there is
+                                    nobody to sponsor them yet), so a new region can always be started.
                                 </div>
                             </div>
                             <div class="form-check form-switch fs-4 mb-0 flex-none">

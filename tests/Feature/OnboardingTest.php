@@ -56,7 +56,9 @@ class OnboardingTest extends TestCase
 
     public function test_member_dashboard_shows_the_checklist(): void
     {
+        // The dashboard opens once the first payment is approved (until then only the plans are shown).
         $m = $this->member('DASH1');
+        $m->update(['status' => 'active']);
 
         $this->actingAs($m, 'member')->get(route('member.dashboard'))
             ->assertOk()->assertSee('Getting started')->assertSee('Choose and buy a plan');

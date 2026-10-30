@@ -36,6 +36,7 @@ class AccountController extends Controller
         ]);
 
         $request->user()->update(['password' => $data['password']]);
+        \App\Support\Sessions::endOthersFor($request->user(), $request->session()->getId());
 
         return redirect()->route('admin.account.password')->with('status', 'Your password has been changed.');
     }

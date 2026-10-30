@@ -86,6 +86,31 @@
                                         @csrf @method('DELETE')
                                         <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle me-1"></i>Cancel</button>
                                     </form>
+                                @elseif (in_array($order->status, ['paid', 'settled'], true))
+                                    <a href="{{ route('admin.orders.invoice', $order) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary"><i class="bi bi-receipt me-1"></i>Invoice</a>
+                                    @if ($order->status === 'paid' && auth()->user()->canAccessRoute('admin.orders.credit-note.store'))
+                                        <details class="d-inline-block position-relative text-start">
+                                            <summary class="btn btn-sm btn-outline-danger" style="list-style:none;" title="Cancel this paid order, issue a credit note and record the refund"><i class="bi bi-arrow-counterclockwise me-1"></i>Refund</summary>
+                                            <form method="POST" action="{{ route('admin.orders.credit-note.store', $order) }}" class="position-absolute end-0 bg-white border rounded-3 shadow p-3" style="z-index:5; width: 320px;" onsubmit="return confirm('Cancel this paid order and record the refund? This cannot be undone.')">
+                                                @csrf
+                                                <div class="fw-semibold small mb-2">Refund {{ $order->order_code }} · ₹{{ number_format($order->amount, 2) }}</div>
+                                                <label class="form-label small mb-1">Reason</label>
+                                                <input name="reason" class="form-control form-control-sm mb-2" placeholder="Why is it being refunded?" maxlength="255" required>
+                                                <label class="form-label small mb-1">Money sent back by</label>
+                                                <select name="refund_method" class="form-select form-select-sm mb-2" required>
+                                                    @foreach (\App\Models\CreditNote::METHODS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+                                                </select>
+                                                <label class="form-label small mb-1">Reference <span class="text-secondary">(UTR / refund ID, not needed for cash)</span></label>
+                                                <input name="refund_reference" class="form-control form-control-sm mb-2" maxlength="255">
+                                                <button class="btn btn-sm btn-danger w-100">Cancel order and record refund</button>
+                                            </form>
+                                        </details>
+                                    @elseif ($order->status === 'settled')
+                                        <span class="d-block text-body-tertiary" style="font-size:.7rem;" title="Income for this order was already paid out in a cycle">Settled orders cannot be refunded here</span>
+                                    @endif
+                                @elseif ($order->status === 'cancelled' && $order->relationLoaded('creditNote') && $order->creditNote)
+                                    <a href="{{ route('admin.orders.invoice', $order) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary"><i class="bi bi-receipt me-1"></i>Invoice</a>
+                                    <a href="{{ route('admin.orders.credit-note', $order) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-warning"><i class="bi bi-receipt-cutoff me-1"></i>Credit note</a>
                                 @else
                                     <span class="text-body-tertiary small">—</span>
                                 @endif

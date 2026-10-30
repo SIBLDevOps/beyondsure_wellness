@@ -13,14 +13,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->alias(['admin' => EnsureAdmin::class]);
+        $middleware->alias(['admin' => EnsureAdmin::class, 'member.bought' => \App\Http\Middleware\EnsureMemberHasBought::class]);
+        $middleware->appendToGroup('web', \App\Http\Middleware\SecurityHeaders::class);
 
-        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin/*')
+        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin', 'admin/*')
             ? route('admin.login')
             : route('login'));
 
         // Someone who is already signed in and opens a login page goes to their own dashboard (not the public home page).
-        $middleware->redirectUsersTo(fn (Request $request) => $request->is('admin/*')
+        $middleware->redirectUsersTo(fn (Request $request) => $request->is('admin', 'admin/*')
             ? route('admin.dashboard')
             : route('member.dashboard'));
     })

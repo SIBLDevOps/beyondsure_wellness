@@ -7,14 +7,19 @@
     <title>@yield('title', 'Member Portal') — {{ Site::name() }}</title>
     @include('partials.favicon')
     @vite(['resources/sass/member.scss', 'resources/js/member.js'])
+    @include('partials.theme')
     <style>.min-w-0 { min-width: 0 !important; } .brand-logo { height: 34px; width: auto; max-width: 170px; object-fit: contain; }</style>
 </head>
 <body>
     @php
         /** @var \App\Models\Member|null $currentMember */
         $currentMember = auth('member')->user();
-        $liveWalletBalance = $currentMember ? $currentMember->walletBalance() : 0;
+        // Until the first payment is approved only the plans and their own orders are shown.
+        $bought = (bool) $currentMember?->hasBought();
+        $liveWalletBalance = $bought ? $currentMember->walletBalance() : 0;
         $pendingOrdersCount = $currentMember ? $currentMember->orders()->where('status', 'pending_payment')->count() : 0;
+        // People this member invited who have not paid yet.
+        $pendingInviteesCount = $bought ? $currentMember->sponsoredMembers()->where('status', '!=', 'active')->count() : 0;
 
         $navSections = [
             'Overview & Shopping' => [
@@ -29,16 +34,24 @@
             'My Network & Genealogy' => [
                 'member.downline.index' => ['Binary Tree', 'bi-diagram-3', null],
                 'member.team.index' => ['Direct Team', 'bi-people', null],
+                'member.pending.index' => ['Pending customers', 'bi-hourglass-split', $pendingInviteesCount ?: null],
                 'member.levels.index' => ['Level Income', 'bi-bar-chart-steps', null],
             ],
         ];
+
+        if ($currentMember && ! $bought) {
+            $navSections = ['Get started' => ['member.plans.index' => ['Plans & Bundles', 'bi-layers', null]]];
+            if ($currentMember->orders()->exists()) {
+                $navSections['Get started']['member.orders.index'] = ['My Orders', 'bi-bag-check', $pendingOrdersCount ?: null];
+            }
+        }
     @endphp
 
     <div class="d-flex">
         {{-- Desktop Customer Sidebar --}}
         <aside class="member-sidebar d-none d-lg-flex flex-column p-3 flex-shrink-0 sticky-top" style="height: 100vh;">
             <div class="d-flex align-items-center justify-content-between mb-3 px-1">
-                <a href="{{ route('member.dashboard') }}" class="brand">@include('partials.brand', ['accent' => 'accent', 'img' => 'brand-logo', 'dark' => true])</a>
+                <a href="{{ route($bought ? 'member.dashboard' : 'member.plans.index') }}" class="brand">@include('partials.brand', ['accent' => 'accent', 'img' => 'brand-logo', 'dark' => true])</a>
                 <span class="badge bg-white bg-opacity-10 text-white fw-normal" style="font-size: .68rem;">Member Portal</span>
             </div>
 
@@ -53,6 +66,7 @@
                             <div class="font-monospace text-white-50" style="font-size: .72rem;">{{ $currentMember->member_code }}</div>
                         </div>
                     </div>
+                    @if ($bought)
                     <div class="d-flex align-items-center justify-content-between pt-2 border-top border-white border-opacity-10 small">
                         <span class="badge rounded-pill {{ $currentMember->status === 'active' ? 'bg-success text-white' : 'bg-secondary text-white' }} text-capitalize" style="font-size: .65rem;">
                             {{ $currentMember->status }}
@@ -61,6 +75,7 @@
                             <i class="bi bi-award-fill me-1"></i>{{ $currentMember->rank }}
                         </span>
                     </div>
+                    @endif
                 </div>
             @endif
 
@@ -101,7 +116,7 @@
                 @if ($currentMember)
                     <div class="member-profile-card mb-3">
                         <div class="fw-semibold text-white small">{{ $currentMember->name }}</div>
-                        <div class="font-monospace text-white-50 small">{{ $currentMember->member_code }} · <span class="text-capitalize">{{ $currentMember->rank }}</span></div>
+                        <div class="font-monospace text-white-50 small">{{ $currentMember->member_code }}@if ($bought) · <span class="text-capitalize">{{ $currentMember->rank }}</span>@endif</div>
                     </div>
                 @endif
                 <nav class="nav flex-column gap-1">
@@ -136,6 +151,7 @@
 
                 <div class="ms-auto d-flex align-items-center gap-2 gap-md-3">
                     @if ($currentMember)
+                        @if ($bought)
                         <button type="button"
                             class="btn btn-sm btn-light border d-none d-md-inline-flex align-items-center gap-1 font-monospace small"
                             data-copy-text="{{ $currentMember->member_code }}"
@@ -148,6 +164,7 @@
                         <a href="{{ route('member.wallet.index') }}" class="btn btn-sm bg-success-subtle text-success fw-semibold rounded-pill px-3">
                             <i class="bi bi-wallet2 me-1"></i>₹{{ number_format($liveWalletBalance, 2) }}
                         </a>
+                        @endif
 
                         <a href="{{ route('member.plans.index') }}" class="btn btn-sm btn-success d-none d-sm-inline-flex align-items-center gap-1">
                             <i class="bi bi-cart-plus"></i>
@@ -165,8 +182,10 @@
                                     <div class="fw-semibold small">{{ $currentMember->name }}</div>
                                     <div class="font-monospace text-body-tertiary" style="font-size: .75rem;">{{ $currentMember->member_code }}</div>
                                 </li>
+                                @if ($bought)
                                 <li><a class="dropdown-item small" href="{{ route('member.dashboard') }}"><i class="bi bi-grid-1x2 me-2 text-secondary"></i>Dashboard</a></li>
                                 <li><a class="dropdown-item small" href="{{ route('member.wallet.index') }}"><i class="bi bi-bank me-2 text-secondary"></i>Bank &amp; Wallet KYC</a></li>
+                                @endif
                                 <li><a class="dropdown-item small" href="{{ route('home') }}" target="_blank"><i class="bi bi-box-arrow-up-right me-2 text-secondary"></i>Public Website</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
@@ -199,6 +218,7 @@
             </main>
         </div>
     </div>
+    @stack('scripts')
 </body>
 </html>
 

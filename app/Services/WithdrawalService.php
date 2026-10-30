@@ -25,7 +25,7 @@ class WithdrawalService
         // money. availableBalance() already excludes every pending/approved request still
         // unpaid; without the lock, a race between two simultaneous requests could still slip
         // past it.
-        return DB::transaction(function () use ($member, $amount) {
+        $withdrawal = DB::transaction(function () use ($member, $amount) {
             $locked = Member::whereKey($member->id)->lockForUpdate()->firstOrFail();
 
             if ($amount > $locked->availableBalance()) {
@@ -45,24 +45,48 @@ class WithdrawalService
                 'upi_id' => $locked->upi_id,
             ]);
         });
+
+        app(MemberMailer::class)->withdrawalRequested($withdrawal);
+
+        return $withdrawal;
     }
 
+    /** Only a pending request can be approved. Approving anything else (paid, rejected) would rewind its history. */
     public function approve(Withdrawal $withdrawal, User $admin): void
     {
-        $withdrawal->update([
-            'status' => 'approved',
+        $this->transition($withdrawal, ['pending'], 'approved', 'Only a pending withdrawal can be approved.', [
             'approved_by' => $admin->id,
             'approved_at' => now(),
         ]);
     }
 
+    /** A pending or approved (not yet paid) request can be rejected. Once paid, the money has left and it stays paid. */
     public function reject(Withdrawal $withdrawal, User $admin): void
     {
-        $withdrawal->update([
-            'status' => 'rejected',
+        $this->transition($withdrawal, ['pending', 'approved'], 'rejected', 'Only a pending or approved withdrawal can be rejected. A paid one cannot be undone here.', [
             'approved_by' => $admin->id,
             'approved_at' => now(),
         ]);
+    }
+
+    /**
+     * Moves a withdrawal to a new status only from the allowed ones. The row is re-read under a lock, so a
+     * repeated or simultaneous request sees the current status and cannot slip through on stale data.
+     */
+    private function transition(Withdrawal $withdrawal, array $from, string $to, string $error, array $extra = []): void
+    {
+        DB::transaction(function () use ($withdrawal, $from, $to, $error, $extra) {
+            $locked = Withdrawal::whereKey($withdrawal->id)->lockForUpdate()->firstOrFail();
+
+            if (! in_array($locked->status, $from, true)) {
+                throw new \RuntimeException($error);
+            }
+
+            $locked->update(['status' => $to] + $extra);
+            $withdrawal->setRawAttributes($locked->fresh()->getAttributes(), true);
+        });
+
+        app(MemberMailer::class)->withdrawalDecision($withdrawal);
     }
 
     /**
@@ -72,15 +96,17 @@ class WithdrawalService
      */
     public function markPaid(Withdrawal $withdrawal, string $payoutReference): void
     {
-        if ($withdrawal->status !== 'approved') {
-            throw new \RuntimeException('Only an approved withdrawal can be marked paid.');
-        }
-
         if (trim($payoutReference) === '') {
             throw new \RuntimeException('A payout reference is required to mark a withdrawal paid.');
         }
 
         DB::transaction(function () use ($withdrawal, $payoutReference) {
+            // Re-check under a lock so the same withdrawal can never be paid (and debited) twice.
+            $locked = Withdrawal::whereKey($withdrawal->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status !== 'approved') {
+                throw new \RuntimeException('Only an approved withdrawal can be marked paid.');
+            }
+
             $withdrawal->update([
                 'status' => 'paid',
                 'payout_reference' => $payoutReference,
@@ -95,5 +121,7 @@ class WithdrawalService
                 'description' => "Withdrawal paid — ref {$payoutReference}",
             ]);
         });
+
+        app(MemberMailer::class)->withdrawalDecision($withdrawal->fresh());
     }
 }

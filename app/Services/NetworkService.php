@@ -27,15 +27,31 @@ class NetworkService
         });
     }
 
-    /** Build a nested tree array (placement tree) rooted at $root, down to $depth levels. */
-    public function buildTree(Member $root, int $depth = 6): array
+    /**
+     * Build a nested tree array (placement tree) rooted at $root, down to $depth levels.
+     *
+     * $activeOnly is what a MEMBER sees: only people whose payment was approved count as downline. Someone who has
+     * registered but not paid yet is left out, unless a paid member sits below them (then they stay, so the tree
+     * does not break). Admins see everyone.
+     */
+    public function buildTree(Member $root, int $depth = 6, bool $activeOnly = false): array
     {
         $root->loadMissing(['sponsor', 'legTotal']);
 
-        return $this->node($root, $depth, 1);
+        return $this->node($root, $depth, 1, $activeOnly);
     }
 
-    private function node(Member $member, int $maxDepth, int $level): array
+    /** Has this person paid, or does anyone who has paid sit anywhere below them? */
+    private function countsAsDownline(Member $member): bool
+    {
+        if ($member->status === 'active') {
+            return true;
+        }
+
+        return Member::where('path', 'like', ($member->path ?? '').$member->id.'.%')->where('status', 'active')->exists();
+    }
+
+    private function node(Member $member, int $maxDepth, int $level, bool $activeOnly = false): array
     {
         $personalBv = (float) Order::where('member_id', $member->id)
             ->whereIn('status', ['paid', 'settled'])
@@ -60,14 +76,15 @@ class NetworkService
         $children = Member::with(['sponsor', 'legTotal'])
             ->where('placement_id', $member->id)
             ->get()
+            ->when($activeOnly, fn ($c) => $c->filter(fn (Member $m) => $this->countsAsDownline($m)))
             ->keyBy('position');
 
         if ($left = $children->get('left')) {
-            $node['left'] = $this->node($left, $maxDepth, $level + 1);
+            $node['left'] = $this->node($left, $maxDepth, $level + 1, $activeOnly);
         }
 
         if ($right = $children->get('right')) {
-            $node['right'] = $this->node($right, $maxDepth, $level + 1);
+            $node['right'] = $this->node($right, $maxDepth, $level + 1, $activeOnly);
         }
 
         return $node;
@@ -78,7 +95,7 @@ class NetworkService
      * down to $depth levels: member count, active-this-month count, BV contributed,
      * and income earned by $root from members at each level.
      */
-    public function levelBreakdown(Member $root, int $depth = 6): array
+    public function levelBreakdown(Member $root, int $depth = 6, bool $activeOnly = false): array
     {
         $levels = [];
         $frontier = [$root];
@@ -95,8 +112,16 @@ class NetworkService
                 break;
             }
 
-            $ids = array_map(fn (Member $m) => $m->id, $next);
-            $activeCount = collect($next)->filter(fn (Member $m) => $m->isActiveThisMonth())->count();
+            // A member sees only paid people in the counts; everyone is still walked so deeper levels stay connected.
+            $visible = $activeOnly ? array_values(array_filter($next, fn (Member $m) => $m->status === 'active')) : $next;
+            if (empty($visible)) {
+                $frontier = $next;
+
+                continue;
+            }
+
+            $ids = array_map(fn (Member $m) => $m->id, $visible);
+            $activeCount = collect($visible)->filter(fn (Member $m) => $m->isActiveThisMonth())->count();
             $bv = Order::whereIn('member_id', $ids)
                 ->whereIn('status', ['paid', 'settled'])
                 ->sum('bv');
@@ -111,7 +136,7 @@ class NetworkService
                 ->whereIn('source_member_id', $ids)
                 ->sum('amount');
 
-            $membersAtLevel = collect($next)->map(function (Member $m) use ($root) {
+            $membersAtLevel = collect($visible)->map(function (Member $m) use ($root) {
                 $earned = (float) LedgerEntry::where('member_id', $root->id)
                     ->whereIn('type', ['matching', 'sponsor'])
                     ->where('source_member_id', $m->id)
@@ -133,7 +158,7 @@ class NetworkService
 
             $levels[] = [
                 'level' => $level,
-                'count' => count($next),
+                'count' => count($visible),
                 'active_count' => $activeCount,
                 'bv' => (float) $bv,
                 'matching_income' => $matchingIncome,

@@ -36,7 +36,35 @@ class RegisterController extends Controller
         // Who decides the region: the sponsor's, else the link's, else the plan being bought, else the only one open.
         $region = $sponsor?->region ?? $requested ?? $planRegion ?? ($regions->count() === 1 ? $regions->first() : null);
 
+        // The plans people can choose from: those of their region, or every open region when the region is not decided yet.
+        $plans = Plan::where('is_active', true)
+            ->when($region, fn ($q) => $q->where('region_id', $region->id), fn ($q) => $q->whereIn('region_id', $regions->pluck('id')))
+            ->with(['region', 'products'])->orderBy('region_id')->orderBy('price')->get();
+
+        // Arriving through someone's invite link locks that sponsor (and leg) in for this visit; arriving without
+        // one clears any earlier link so the field is free to type in.
+        // The sponsor may also have chosen the plan for them. Only an active plan of the person's own region counts.
+        $linkedPlan = $request->filled('plan') && ctype_digit((string) $request->query('plan'))
+            ? $plans->firstWhere('id', (int) $request->query('plan'))
+            : null;
+        $linkedPlan && $region
+            ? $request->session()->put('invited_plan', $linkedPlan->id)
+            : $request->session()->forget('invited_plan');
+
+        if ($sponsor) {
+            $request->session()->put('invited_sponsor', $sponsor->member_code);
+            in_array($request->query('side'), ['left', 'right'], true)
+                ? $request->session()->put('invited_side', $request->query('side'))
+                : $request->session()->forget('invited_side');
+        } else {
+            $request->session()->forget(['invited_sponsor', 'invited_side']);
+        }
+
         return view('auth.register', [
+            'sponsorLocked' => $sponsor,
+            'planLocked' => $linkedPlan && $region ? $linkedPlan : null,
+            'plans' => $plans,
+            'selectedPlan' => (int) ($request->query('plan') ?: $request->session()->get('intended_plan_id')),
             'phone' => $request->query('phone'),
             'sponsor' => $request->query('sponsor'),
             'side' => in_array($request->query('side'), ['left', 'right'], true) ? $request->query('side') : null,
@@ -63,6 +91,17 @@ class RegisterController extends Controller
         if ($request->filled('phone')) {
             $request->merge(['phone' => trim((string) $request->input('phone'))]);
         }
+        // Came through an invite link: the sponsor and leg are fixed by the link, whatever the form says.
+        if ($invited = $request->session()->get('invited_sponsor')) {
+            $request->merge(['sponsor_code' => $invited]);
+            if ($invitedSide = $request->session()->get('invited_side')) {
+                $request->merge(['side' => $invitedSide]);
+            }
+        }
+        // Same for the plan the sponsor chose in the link.
+        if ($invitedPlan = $request->session()->get('invited_plan')) {
+            $request->merge(['plan_id' => $invitedPlan]);
+        }
         if ($request->filled('sponsor_code')) {
             $request->merge(['sponsor_code' => strtoupper(trim((string) $request->input('sponsor_code')))]);
         }
@@ -74,6 +113,7 @@ class RegisterController extends Controller
             'sponsor_code' => ['nullable', 'string', 'exists:members,member_code'],
             'side' => ['nullable', 'in:left,right'],
             'region' => ['nullable', 'string', 'exists:regions,code'],
+            'plan_id' => ['nullable', 'integer'],
         ], [
             'name.required' => 'Please enter your full name.',
             'phone.required' => 'Mobile number is required.',
@@ -115,6 +155,19 @@ class RegisterController extends Controller
 
         if ($this->sponsorRequired($region) && ! $sponsor) {
             return back()->withInput()->withErrors(['sponsor_code' => "A sponsor code is required to join the {$region->name} region. Ask the person who invited you for their link."]);
+        }
+
+        // Ask which plan they want. It must be an active plan of their region; a region with no plans does not ask.
+        $available = Plan::where('region_id', $region->id)->where('is_active', true)->pluck('id');
+        if ($available->isNotEmpty()) {
+            if (empty($data['plan_id'])) {
+                return back()->withInput()->withErrors(['plan_id' => 'Please choose the plan you want to buy.']);
+            }
+            if (! $available->contains((int) $data['plan_id'])) {
+                return back()->withInput()->withErrors(['plan_id' => 'That plan is not available in the '.$region->name.' region. Please choose one from the list.']);
+            }
+        } else {
+            $data['plan_id'] = null;
         }
 
         $data['region_id'] = $region->id;
@@ -212,13 +265,27 @@ class RegisterController extends Controller
             'position' => $placement['position'],
             'path' => $placement['path'],
             'status' => 'inactive',
+            'interested_plan_id' => $pending['plan_id'] ?? null,
             'phone_verified_at' => now(),
         ]);
 
-        $request->session()->forget('pending_registration');
+        // Welcome the new member and tell their sponsor (each only if there is an email address to send to).
+        $member->load('sponsor', 'interestedPlan');
+        app(\App\Services\MemberMailer::class)->welcome($member);
+        app(\App\Services\MemberMailer::class)->sponsorNewMember($member);
+
+        // Straight to payment for the plan they chose (an unpaid order is created by the redirect below).
+        if (! empty($pending['plan_id'])) {
+            $request->session()->put('intended_plan_id', $pending['plan_id']);
+        }
+
+        $request->session()->forget(['pending_registration', 'invited_sponsor', 'invited_side', 'invited_plan']);
 
         Auth::guard('member')->login($member);
         $request->session()->regenerate();
+
+        // The payment page greets a brand-new member once, then it is gone.
+        $request->session()->flash('welcome_new_member', true);
 
         return $this->redirectAfterAuth($request, $member);
     }

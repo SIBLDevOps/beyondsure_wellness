@@ -101,13 +101,13 @@ class RegionFlowTest extends TestCase
         $dlPlan = $this->plan($dl, 'DL Essential', 2000, 800);
 
         // 2. Members join by region link and by sponsor links (left / right).
-        $g1 = $this->join(['phone' => '9100000001', 'region' => 'GJ']);
-        $g2 = $this->join(['phone' => '9100000002', 'sponsor_code' => $g1->member_code, 'side' => 'left']);
-        $g3 = $this->join(['phone' => '9100000003', 'sponsor_code' => $g1->member_code, 'side' => 'right']);
-        $m1 = $this->join(['phone' => '9200000001', 'region' => 'MH']);
-        $m2 = $this->join(['phone' => '9200000002', 'sponsor_code' => $m1->member_code, 'side' => 'left']);
-        $m3 = $this->join(['phone' => '9200000003', 'sponsor_code' => $m1->member_code, 'side' => 'right']);
-        $d1 = $this->join(['phone' => '9300000001', 'region' => 'DL']);
+        $g1 = $this->join(['phone' => '9100000001', 'plan_id' => $gjPlan->id, 'region' => 'GJ']);
+        $g2 = $this->join(['phone' => '9100000002', 'plan_id' => $gjPlan->id, 'sponsor_code' => $g1->member_code, 'side' => 'left']);
+        $g3 = $this->join(['phone' => '9100000003', 'plan_id' => $gjPlan->id, 'sponsor_code' => $g1->member_code, 'side' => 'right']);
+        $m1 = $this->join(['phone' => '9200000001', 'plan_id' => $mhPlan->id, 'region' => 'MH']);
+        $m2 = $this->join(['phone' => '9200000002', 'plan_id' => $mhPlan->id, 'sponsor_code' => $m1->member_code, 'side' => 'left']);
+        $m3 = $this->join(['phone' => '9200000003', 'plan_id' => $mhPlan->id, 'sponsor_code' => $m1->member_code, 'side' => 'right']);
+        $d1 = $this->join(['phone' => '9300000001', 'plan_id' => $dlPlan->id, 'region' => 'DL']);
 
         // 3. Trees are separate: three roots, correct legs, all inside their own region.
         $this->assertSame(3, Member::whereNull('placement_id')->count());

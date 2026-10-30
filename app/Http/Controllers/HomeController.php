@@ -27,7 +27,7 @@ class HomeController extends Controller
 
         // One source of truth for the editable text and its defaults: the admin Website settings page.
         $content = collect(\App\Http\Controllers\Admin\SiteContentController::fields())
-            ->mapWithKeys(fn ($f, $key) => [$key => Setting::get($key, $f[1])]);
+            ->mapWithKeys(fn ($f, $key) => [$key => (Setting::get($key) ?? $f[1])]);
 
         return view('home', [
             'plans' => $plans,

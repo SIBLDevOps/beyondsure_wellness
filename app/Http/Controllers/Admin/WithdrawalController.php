@@ -23,24 +23,30 @@ class WithdrawalController extends Controller
 
     public function approve(Withdrawal $withdrawal): RedirectResponse
     {
-        $this->withdrawals->approve($withdrawal, Auth::user());
-
-        return back()->with('status', 'Withdrawal approved.');
+        return $this->attempt(fn () => $this->withdrawals->approve($withdrawal, Auth::user()), 'Withdrawal approved.');
     }
 
     public function reject(Withdrawal $withdrawal): RedirectResponse
     {
-        $this->withdrawals->reject($withdrawal, Auth::user());
-
-        return back()->with('status', 'Withdrawal rejected.');
+        return $this->attempt(fn () => $this->withdrawals->reject($withdrawal, Auth::user()), 'Withdrawal rejected.');
     }
 
     public function markPaid(Request $request, Withdrawal $withdrawal): RedirectResponse
     {
         $data = $request->validate(['payout_reference' => ['required', 'string', 'max:255']]);
 
-        $this->withdrawals->markPaid($withdrawal, $data['payout_reference']);
+        return $this->attempt(fn () => $this->withdrawals->markPaid($withdrawal, $data['payout_reference']), 'Withdrawal marked paid.');
+    }
 
-        return back()->with('status', 'Withdrawal marked paid.');
+    /** Runs a status change and turns a refused one (wrong current status) into a clear message instead of an error page. */
+    private function attempt(callable $change, string $success): RedirectResponse
+    {
+        try {
+            $change();
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['withdrawal' => $e->getMessage()]);
+        }
+
+        return back()->with('status', $success);
     }
 }

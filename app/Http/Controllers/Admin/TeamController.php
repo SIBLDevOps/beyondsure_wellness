@@ -74,9 +74,18 @@ class TeamController extends Controller
 
         $password = Str::password(12, symbols: false);
         $user->update(['password' => $password]);
+        \App\Support\Sessions::endOthersFor($user);
 
         return redirect()->route('admin.team.edit', $user)
             ->with('new_password', ['name' => $user->name, 'email' => $user->email, 'password' => $password]);
+    }
+
+    /** For a colleague who lost their phone and recovery codes: back to password-only sign-in, so they can set it up again. */
+    public function resetTwoFactor(User $user): RedirectResponse
+    {
+        $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null])->save();
+
+        return back()->with('status', "Two-factor sign-in was reset for {$user->name}. They can switch it on again from their account menu.");
     }
 
     public function destroy(User $user): RedirectResponse

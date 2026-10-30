@@ -12,7 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 #[Fillable(['name', 'email', 'password', 'role', 'permissions', 'is_active', 'region_ids'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -31,7 +31,17 @@ class User extends Authenticatable
             'permissions' => 'array',
             'region_ids' => 'array',
             'is_active' => 'boolean',
+            // The authenticator secret is stored encrypted; recovery codes are stored as password hashes inside an encrypted list.
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at' => 'datetime',
         ];
+    }
+
+    /** True once the person confirmed a code from their authenticator app. */
+    public function hasTwoFactor(): bool
+    {
+        return $this->two_factor_confirmed_at !== null && ! empty($this->two_factor_secret);
     }
 
     /**
@@ -104,7 +114,10 @@ class User extends Authenticatable
         }
 
         foreach (AdminPermissions::requirementsFor($routeName) as $needed) {
-            $allowed = $needed === 'super' ? $this->isSuperAdmin() : $this->hasPermission($needed);
+            // "a|b": any one of the listed permissions is enough.
+            $allowed = $needed === 'super'
+                ? $this->isSuperAdmin()
+                : collect(explode('|', $needed))->contains(fn (string $p) => $this->hasPermission($p));
 
             if (! $allowed) {
                 return false;

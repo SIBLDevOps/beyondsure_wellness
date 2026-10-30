@@ -275,11 +275,11 @@
                     <div class="example">
                         <span class="tag">Worked example — a small team (each buys {{ $sample['name'] }}, BV {{ $m($bv) }})</span>
                         <div class="tree">
-                            <div class="tnode root"><b>Tejas</b>sponsor of XYZ &amp; ABC</div>
+                            <div class="tnode root"><b>Beyond Sure</b>sponsor of XYZ &amp; ABC</div>
                             <div class="tlink">↙ left leg &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; right leg ↘</div>
                             <div class="row-l">
-                                <div class="tnode l"><b>XYZ</b>BV {{ $m($bv) }}<br>sponsor: Tejas</div>
-                                <div class="tnode r"><b>ABC</b>BV {{ $m($bv) }}<br>sponsor: Tejas</div>
+                                <div class="tnode l"><b>XYZ</b>BV {{ $m($bv) }}<br>sponsor: Beyond Sure</div>
+                                <div class="tnode r"><b>ABC</b>BV {{ $m($bv) }}<br>sponsor: Beyond Sure</div>
                             </div>
                             <div class="tlink" style="margin-left: 11rem;">↓ placed under ABC</div>
                             <div class="row-l" style="margin-left: 11rem;">
@@ -287,9 +287,9 @@
                             </div>
                         </div>
                         <ul class="mb-0 ps-3 mt-2">
-                            <li><strong>Tejas's left leg</strong> = {{ $m($bv) }} (XYZ). <strong>Right leg</strong> = {{ $m($bv * 2) }} (ABC + down ABC).</li>
-                            <li><strong>Sponsor income:</strong> Tejas introduced XYZ and ABC, so he earns {{ $s['sponsor'] }}% × {{ $m($bv) }} = <strong>{{ $m($bv * $s['sponsor'] / 100, 2) }}</strong> on each — {{ $m($bv * $s['sponsor'] / 100 * 2, 2) }} total. down ABC was introduced by ABC, so that {{ $m($bv * $s['sponsor'] / 100, 2) }} goes to ABC, not Tejas.</li>
-                            <li>down ABC's purchase <em>still counts in Tejas's right leg</em> — placement, not sponsorship, builds legs.</li>
+                            <li><strong>Beyond Sure's left leg</strong> = {{ $m($bv) }} (XYZ). <strong>Right leg</strong> = {{ $m($bv * 2) }} (ABC + down ABC).</li>
+                            <li><strong>Sponsor income:</strong> Beyond Sure introduced XYZ and ABC, so he earns {{ $s['sponsor'] }}% × {{ $m($bv) }} = <strong>{{ $m($bv * $s['sponsor'] / 100, 2) }}</strong> on each — {{ $m($bv * $s['sponsor'] / 100 * 2, 2) }} total. down ABC was introduced by ABC, so that {{ $m($bv * $s['sponsor'] / 100, 2) }} goes to ABC, not Beyond Sure.</li>
+                            <li>down ABC's purchase <em>still counts in Beyond Sure's right leg</em> — placement, not sponsorship, builds legs.</li>
                         </ul>
                     </div>
                     @if ($go('admin.members.index'))<a href="{{ $go('admin.members.index') }}" class="goto text-decoration-none">See any member's tree: Members → Network <i class="bi bi-arrow-right"></i></a>@endif
@@ -310,7 +310,7 @@
                     <p>Each leg's total BV is tracked for ever. <strong>Matched BV = the smaller leg</strong>. Only <em>newly</em> matched volume is paid, and volume is never matched twice.</p>
                     <div class="example">
                         <span class="tag">Worked example — continuing the team above</span>
-                        Tejas: left {{ $m($bv) }}, right {{ $m($bv * 2) }}. Matched = {{ $m($bv) }} (the smaller side).
+                        Beyond Sure: left {{ $m($bv) }}, right {{ $m($bv * 2) }}. Matched = {{ $m($bv) }} (the smaller side).
                         The extra {{ $m($bv) }} on the right is <strong>carry-forward</strong> — it never expires and matches the moment {{ $m($bv) }} of new volume lands on his left.
                     </div>
                     <h3>Step 2 — the level cascade</h3>

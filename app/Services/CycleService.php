@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Cycle;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class CycleService
 {
@@ -22,14 +23,35 @@ class CycleService
      * Admin fully controls when this runs — nothing here happens on a timer. This is the
      * moment earned income is posted to the ledger (paying it OUT is a separate, later
      * dispatch step — see DispatchService).
+     *
+     * The cycle is re-read under a row lock inside one transaction, so two admins pressing Approve together (or a
+     * stale browser tab) cannot both run it: the second one sees "approved" and stops before anything is posted.
      */
     public function approve(Cycle $cycle, User $admin): void
     {
-        if ($cycle->isApproved()) {
-            throw new \RuntimeException('This cycle has already been approved.');
-        }
+        // Ranks before the cycle, to tell people whose rank went up.
+        $ranksBefore = \App\Models\Member::withoutGlobalScopes()->pluck('rank', 'id');
 
-        $this->engine->run($cycle);
-        $cycle->update(['approved_by' => $admin->id]);
+        DB::transaction(function () use ($cycle, $admin) {
+            $locked = Cycle::whereKey($cycle->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->isApproved()) {
+                throw new \RuntimeException('This cycle has already been approved.');
+            }
+
+            $this->engine->run($locked);
+            $locked->update(['approved_by' => $admin->id]);
+        });
+
+        $cycle->refresh();
+
+        $mailer = app(MemberMailer::class);
+        $mailer->incomeCredited($cycle);
+
+        foreach (\App\Models\Member::withoutGlobalScopes()->whereNotNull('rank')->where('rank', '!=', 'none')->get() as $member) {
+            if (($ranksBefore[$member->id] ?? null) !== $member->rank) {
+                $mailer->rankReached($member, $member->rank);
+            }
+        }
     }
 }

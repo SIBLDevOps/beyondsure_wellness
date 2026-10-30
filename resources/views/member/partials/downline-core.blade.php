@@ -141,17 +141,17 @@
         text-align: left;
     }
     .genealogy-node:hover {
-        border-color: #059669;
+        border-color: var(--brand-600, #059669);
         box-shadow: 0 8px 20px rgba(5, 150, 105, .15);
         transform: translateY(-2px);
     }
     .genealogy-node-root {
-        border: 2px solid #059669;
-        background: linear-gradient(180deg, #ecfdf5 0%, #ffffff 45%);
+        border: 2px solid var(--brand-600, #059669);
+        background: linear-gradient(180deg, var(--brand-50, #ecfdf5) 0%, #ffffff 45%);
         box-shadow: 0 4px 12px rgba(5, 150, 105, .12);
     }
     .genealogy-node.is-active-month {
-        border-top: 3px solid #059669;
+        border-top: 3px solid var(--brand-600, #059669);
     }
     .genealogy-node.is-inactive-month {
         border-top: 3px solid #94a3b8;
@@ -194,7 +194,7 @@
 
     {{-- Right Leg Card --}}
     <div class="col-6 col-lg-3">
-        <div class="card border h-100 shadow-sm hover-lift" style="border-top: 3px solid #059669 !important; border-radius: .85rem;">
+        <div class="card border h-100 shadow-sm hover-lift" style="border-top: 3px solid var(--brand-600, #059669) !important; border-radius: .85rem;">
             <div class="card-body p-3 d-flex flex-column justify-content-between">
                 <div class="d-flex align-items-center justify-content-between mb-2">
                     <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2" style="font-size: .68rem; font-weight: 700; letter-spacing: .03em; padding-top: .3rem; padding-bottom: .3rem;">
@@ -301,7 +301,7 @@
 
                 {{-- Step 2 --}}
                 <div class="col-sm-6 col-lg-3">
-                    <div class="p-3 bg-white rounded-3 border h-100 shadow-sm hover-lift" style="border-left: 3px solid #059669 !important;">
+                    <div class="p-3 bg-white rounded-3 border h-100 shadow-sm hover-lift" style="border-left: 3px solid var(--brand-600, #059669) !important;">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <span class="badge bg-success-subtle text-success rounded-pill px-2" style="font-size: .65rem; font-weight: 700; padding-top: .25rem; padding-bottom: .25rem;">2. COMMISSION</span>
                             <i class="bi bi-intersect text-success fs-6"></i>
@@ -349,6 +349,8 @@
 {{-- Leg-specific invite links: the sponsor decides which side a new member joins --}}
 @php
     $inviteCode = auth('member')->user()?->member_code;
+    // The plans the sponsor can pick for the person they invite: this region's active plans.
+    $invitePlans = $inviteCode ? \App\Models\Plan::where('region_id', auth('member')->user()->region_id)->where('is_active', true)->orderBy('price')->get() : collect();
     $inviteLinks = [
         'left' => ['label' => 'Left leg link', 'badge' => 'info', 'url' => route('register', ['sponsor' => $inviteCode, 'side' => 'left'])],
         'right' => ['label' => 'Right leg link', 'badge' => 'success', 'url' => route('register', ['sponsor' => $inviteCode, 'side' => 'right'])],
@@ -359,17 +361,69 @@
         <div class="card-body py-3">
             <div class="fw-semibold small mb-1"><i class="bi bi-link-45deg me-1 text-success"></i>Your invite links</div>
             <div class="text-body-tertiary small mb-3">Whoever registers with a link joins that leg of your team. If the slot directly under you is taken, they're placed at the next open spot in the same leg.</div>
+            @if ($invitePlans->isNotEmpty())
+                <div class="mb-3" style="max-width: 420px;">
+                    <label for="invitePlanLeg" class="form-label small fw-medium mb-1">Plan for the person you invite</label>
+                    <select id="invitePlanLeg" class="form-select form-select-sm">
+                        <option value="">Let them choose</option>
+                        @foreach ($invitePlans as $p)
+                            <option value="{{ $p->id }}" data-query="plan={{ $p->id }}">{{ $p->name }} — ₹{{ number_format($p->totalPayable()) }} (incl. GST)</option>
+                        @endforeach
+                    </select>
+                    <div class="text-body-tertiary" style="font-size:.74rem;">They open the link, verify their mobile number and go straight to paying for this plan. They join your team once the payment is approved.</div>
+                </div>
+            @endif
             <div class="row g-2">
                 @foreach ($inviteLinks as $side => $link)
                     <div class="col-md-6">
                         <label class="form-label small fw-medium mb-1"><span class="badge bg-{{ $link['badge'] }}-subtle text-{{ $link['badge'] === 'info' ? 'info-emphasis' : 'success' }} text-uppercase me-1">{{ $side }}</span>{{ $link['label'] }}</label>
                         <div class="input-group input-group-sm">
-                            <input type="text" readonly class="form-control font-monospace" id="invite-{{ $side }}" value="{{ $link['url'] }}" onclick="this.select()">
+                            <input type="text" readonly class="form-control font-monospace invite-url" data-base="{{ $link['url'] }}" data-side="{{ $side }}" id="invite-{{ $side }}" value="{{ $link['url'] }}" onclick="this.select()">
                             <button type="button" class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText(document.getElementById('invite-{{ $side }}').value).then(() => { this.textContent = 'Copied'; setTimeout(() => this.textContent = 'Copy', 1500); }).catch(() => document.getElementById('invite-{{ $side }}').select())">Copy</button>
+                            <a class="btn btn-success invite-wa" id="wa-{{ $side }}" target="_blank" rel="noopener" data-text="Join me on {{ \App\Support\Site::name() }}: " href="https://wa.me/?text={{ rawurlencode('Join me on '.\App\Support\Site::name().': '.$link['url']) }}" title="Share on WhatsApp"><i class="bi bi-whatsapp"></i></a>
                         </div>
                     </div>
                 @endforeach
             </div>
+
+            <hr class="my-3">
+            <details>
+                <summary class="small fw-semibold" style="cursor:pointer;"><i class="bi bi-envelope me-1 text-success"></i>Email this invite</summary>
+                <form method="POST" action="{{ route('member.invite.send') }}" class="row g-2 mt-1">
+                    @csrf
+                    <div class="col-md-4"><input type="email" name="email" class="form-control form-control-sm" placeholder="friend@example.com" required maxlength="255" aria-label="Their email"></div>
+                    <div class="col-md-3"><input type="text" name="name" class="form-control form-control-sm" placeholder="Their name (optional)" maxlength="100" aria-label="Their name"></div>
+                    <div class="col-md-2">
+                        <select name="side" class="form-select form-select-sm" aria-label="Leg">
+                            <option value="">Any leg</option><option value="left">Left leg</option><option value="right">Right leg</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex gap-2">
+                        <select name="plan_id" id="inviteEmailPlan" class="form-select form-select-sm" aria-label="Plan">
+                            <option value="">Let them choose</option>
+                            @foreach ($invitePlans as $p)<option value="{{ $p->id }}">{{ $p->name }}</option>@endforeach
+                        </select>
+                        <button class="btn btn-sm btn-success flex-shrink-0">Send</button>
+                    </div>
+                </form>
+            </details>
+            <script>
+                (function () {
+                    var select = document.getElementById('invitePlanLeg');
+                    if (!select) return;
+                    function refresh() {
+                        document.querySelectorAll('.invite-url').forEach(function (input) {
+                            var url = input.dataset.base + (select.value ? '&plan=' + select.value : '');
+                            input.value = url;
+                            var wa = document.getElementById('wa-' + input.dataset.side);
+                            if (wa) wa.href = 'https://wa.me/?text=' + encodeURIComponent(wa.dataset.text + url);
+                        });
+                        var emailPlan = document.getElementById('inviteEmailPlan');
+                        if (emailPlan) emailPlan.value = select.value;
+                    }
+                    select.addEventListener('change', refresh);
+                })();
+            </script>
         </div>
     </div>
 @endif

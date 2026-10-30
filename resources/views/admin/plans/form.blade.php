@@ -4,7 +4,9 @@
 
 @section('content')
     @php
-        $qtyOf = fn ($productId) => $plan->exists ? optional($plan->products->firstWhere('id', $productId))->pivot?->qty : 0;
+        // A clone starts with the original's products and quantities.
+        $qtySource = $cloneFrom ?? ($plan->exists ? $plan : null);
+        $qtyOf = fn ($productId) => $qtySource ? optional($qtySource->products->firstWhere('id', $productId))->pivot?->qty : 0;
     @endphp
 
     <div class="row g-4">
@@ -23,6 +25,16 @@
                     <form method="POST" action="{{ $plan->exists ? route('admin.plans.update', $plan) : route('admin.plans.store') }}">
                         @csrf
                         @if ($plan->exists) @method('PUT') @endif
+
+                        @if ($cloneFrom ?? null)
+                            <div class="alert alert-info d-flex gap-2 align-items-start small" role="status">
+                                <i class="bi bi-copy mt-1"></i>
+                                <div>
+                                    <strong>You are cloning &ldquo;{{ $cloneFrom->name }}&rdquo;.</strong>
+                                    Change anything you like below, then press <em>Save Plan</em>. Nothing is saved until you do, and the original stays exactly as it is.
+                                </div>
+                            </div>
+                        @endif
 
                         {{-- 1. Plan Details & Pricing --}}
                         <fieldset class="border rounded-3 p-3 mb-4">
@@ -53,9 +65,7 @@
 
                                 <div class="col-12">
                                     <label class="form-label small fw-medium">Description</label>
-                                    <textarea name="description" rows="2" placeholder="Summary of who this bundle is for…"
-                                        class="form-control @error('description') is-invalid @enderror">{{ old('description', $plan->description) }}</textarea>
-                                    @error('description') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    @include('admin.partials.rich-editor', ['name' => 'description', 'value' => old('description', $plan->description), 'placeholder' => 'Summary of who this bundle is for…', 'height' => 150])
                                 </div>
 
                                 <div class="col-md-6">
@@ -143,9 +153,16 @@
 
                         <div class="p-3 border rounded-3 bg-light mb-4">
                             <div class="form-check form-switch mb-0">
-                                <input type="checkbox" name="is_active" value="1" class="form-check-input" id="is_active" @checked(old('is_active', $plan->exists ? $plan->is_active : true))>
+                                <input type="checkbox" name="is_active" value="1" class="form-check-input" id="is_active" @checked(old('is_active', $plan->exists || ($cloneFrom ?? null) ? $plan->is_active : true))>
                                 <label class="form-check-label fw-medium small" for="is_active">Active &amp; Available for Purchase</label>
                             </div>
+                            @unless ($plan->exists)
+                                <div class="form-check form-switch mt-3 mb-0">
+                                    <input type="checkbox" name="notify_members" value="1" class="form-check-input" id="notify_members" @checked(old('notify_members'))>
+                                    <label class="form-check-label fw-medium small" for="notify_members">Email members about this plan</label>
+                                    <div class="text-body-tertiary" style="font-size:.75rem;">Sends the plan to every member of its region who has an email address and has not unsubscribed. Only if the plan is active.</div>
+                                </div>
+                            @endunless
                         </div>
 
                         <div class="d-flex align-items-center gap-2 pt-2 border-top">

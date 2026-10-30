@@ -86,9 +86,7 @@
                             </div>
                             <div class="col-12">
                                 <label class="pf-label" for="description">Description <span class="text-secondary fw-normal">(optional)</span></label>
-                                <textarea name="description" id="description" rows="2" placeholder="Shown on plan and bundle views"
-                                    class="form-control @error('description') is-invalid @enderror">{{ old('description', $product->description) }}</textarea>
-                                @error('description') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                @include('admin.partials.rich-editor', ['name' => 'description', 'value' => old('description', $product->description), 'placeholder' => 'Shown on plan and bundle views', 'height' => 140])
                             </div>
                         </div>
                     </div>

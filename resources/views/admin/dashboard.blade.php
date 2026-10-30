@@ -9,179 +9,121 @@
         // Commission totals and the finance shortcuts only show for people granted Finance access.
         $finance = auth()->user()->canSeeFinance();
     @endphp
-    <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+    @php
+        $can = fn (string $r) => auth()->user()->canAccessRoute($r);
+        $hour = (int) now()->format('G');
+        $hello = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
+        $firstName = \Illuminate\Support\Str::of(auth()->user()->name)->before(' ');
+
+        // What is waiting on this person. Only things they are allowed to act on are shown.
+        $todo = collect([
+            ['n' => $pendingPayments, 'route' => 'admin.payments.index', 'icon' => 'bi-credit-card', 'tone' => 'warning', 'btn' => 'Check payments',
+                'text' => $pendingPayments.' '.\Illuminate\Support\Str::plural('payment', $pendingPayments).' '.($pendingPayments === 1 ? 'is' : 'are').' waiting for you to check',
+                'hint' => 'Compare each one with your bank statement, then verify or reject it.'],
+            ['n' => $unsettledOrders, 'route' => 'admin.cycles.index', 'icon' => 'bi-arrow-repeat', 'tone' => 'primary', 'btn' => 'Open cycles',
+                'text' => $unsettledOrders.' paid '.\Illuminate\Support\Str::plural('order', $unsettledOrders).' '.($unsettledOrders === 1 ? 'is' : 'are').' waiting for a cycle',
+                'hint' => 'Members only earn income after you approve a cycle.'],
+            ['n' => $pendingWithdrawals, 'route' => 'admin.withdrawals.index', 'icon' => 'bi-cash-coin', 'tone' => 'danger', 'btn' => 'Review requests',
+                'text' => $pendingWithdrawals.' withdrawal '.\Illuminate\Support\Str::plural('request', $pendingWithdrawals).' '.($pendingWithdrawals === 1 ? 'needs' : 'need').' approval',
+                'hint' => 'Approve to make it payable, or reject to give the money back to the member.'],
+            ['n' => $withdrawalsToProcess, 'route' => 'admin.dispatch.index', 'icon' => 'bi-truck', 'tone' => 'success', 'btn' => 'Make a payout batch',
+                'text' => $withdrawalsToProcess.' approved '.\Illuminate\Support\Str::plural('withdrawal', $withdrawalsToProcess).' '.($withdrawalsToProcess === 1 ? 'is' : 'are').' ready to pay',
+                'hint' => 'Group them in a batch, pay from your bank, then enter the reference for each.'],
+            ['n' => $unreadMessages, 'route' => 'admin.messages.index', 'icon' => 'bi-envelope', 'tone' => 'info', 'btn' => 'Read messages',
+                'text' => $unreadMessages.' new '.\Illuminate\Support\Str::plural('message', $unreadMessages).' from your website',
+                'hint' => 'Visitors who used the contact form are waiting for an answer.'],
+            ['n' => $noPurchaseMembers, 'route' => 'admin.members.index', 'query' => ['onboarding' => 'no_purchase'], 'icon' => 'bi-person-plus', 'tone' => 'secondary', 'btn' => 'See who',
+                'text' => $noPurchaseMembers.' '.\Illuminate\Support\Str::plural('member', $noPurchaseMembers).' '.($noPurchaseMembers === 1 ? 'has' : 'have').' not bought a plan yet',
+                'hint' => 'A friendly follow-up often turns a sign-up into a first order.'],
+        ])->filter(fn ($t) => $t['n'] > 0 && $can($t['route']))->values();
+
+        // New-install guide.
+        $steps = collect([
+            ['done' => $setup['products'] > 0, 'title' => 'Add your products', 'text' => 'What you sell, with its cost and GST rate.', 'route' => 'admin.products.create', 'btn' => 'Add a product'],
+            ['done' => $setup['plans'] > 0, 'title' => 'Create your plans', 'text' => 'Bundle products into plans and set the price and BV.', 'route' => 'admin.plans.create', 'btn' => 'Create a plan'],
+            ['done' => $setup['members'] > 0, 'title' => 'Share your first-member link', 'text' => 'The first person to join becomes the root of the team. Find the link on the Regions page.', 'route' => 'admin.regions.index', 'btn' => 'Open regions'],
+            ['done' => $setup['products'] > 0 && $setup['productsWithoutGst'] === 0, 'title' => 'Set a GST rate on every product',
+                'text' => $setup['productsWithoutGst'] > 0
+                    ? $setup['productsWithoutGst'].' '.\Illuminate\Support\Str::plural('product', $setup['productsWithoutGst']).' '.($setup['productsWithoutGst'] === 1 ? 'has' : 'have').' no GST rate, so '.($setup['productsWithoutGst'] === 1 ? 'it is' : 'they are').' charged no tax.'
+                    : 'Every product needs its own rate (0% if exempt).',
+                'route' => 'admin.products.index', 'btn' => 'Open products'],
+        ]);
+        $stepsDone = $steps->where('done', true)->count();
+        $showSetup = $stepsDone < $steps->count() && $can('admin.products.create');
+    @endphp
+
+    {{-- Greeting --}}
+    <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-4">
         <div>
-            <h2 class="h5 mb-1 fw-bold text-dark">Platform Operations &amp; Command Center</h2>
-            <p class="text-secondary small mb-0">
-                Live snapshot of membership activity, pending financial actions, and compensation cycles.
-            </p>
+            <h2 class="h4 mb-1 fw-bold">{{ $hello }}, {{ $firstName }}</h2>
+            <p class="text-secondary mb-0">{{ now()->format('l, j F Y') }} · here is what is going on in your business.</p>
         </div>
-        <div class="d-flex gap-2">
-            @if (auth()->user()->canAccessRoute('admin.cycles.index'))
-                <a href="{{ $go('admin.cycles.index') }}" class="btn btn-sm btn-primary">
-                    <i class="bi bi-play-circle me-1"></i>Run Cycle
-                </a>
-            @endif
-            @if (auth()->user()->canAccessRoute('admin.plans.index'))
-                <a href="{{ $go('admin.plans.index') }}" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-layers me-1"></i>Plans
-                </a>
-            @endif
+        <div class="d-flex gap-2 flex-wrap">
+            @if ($can('admin.cycles.index'))<a href="{{ $go('admin.cycles.index') }}" class="btn btn-primary"><i class="bi bi-play-circle me-1"></i>Approve a cycle</a>@endif
+            @if ($can('admin.plans.create'))<a href="{{ $go('admin.plans.create') }}" class="btn btn-outline-primary"><i class="bi bi-plus-lg me-1"></i>New plan</a>@endif
         </div>
     </div>
 
-    {{-- Operations Pipeline --}}
-    <div class="card border mb-4">
-        <div class="card-body p-3">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-                <div class="small fw-semibold text-secondary">
-                    <i class="bi bi-diagram-3-fill text-primary me-1"></i>Administrative Financial Flow (Deliberate 5-Step Order)
-                </div>
-                <span class="badge bg-light text-secondary border d-none d-md-inline" style="font-size: .7rem;">Nothing runs without your verification</span>
-            </div>
-            <div class="d-flex align-items-center gap-2 overflow-auto py-1">
-                {{-- Step 1 --}}
-                <div class="d-flex align-items-center gap-2 bg-light-subtle border rounded-3 px-3 py-2 flex-shrink-0">
-                    <span class="badge rounded-circle bg-secondary text-white" style="width:20px;height:20px;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center;">1</span>
-                    <span class="small fw-medium">Member Pays</span>
-                </div>
-                <i class="bi bi-arrow-right text-muted flex-shrink-0"></i>
-
-                {{-- Step 2 --}}
-                <a href="{{ $go('admin.payments.index') }}" class="d-flex align-items-center gap-2 border rounded-3 px-3 py-2 flex-shrink-0 text-decoration-none {{ $pendingPayments > 0 ? 'bg-warning-subtle border-warning-subtle text-warning-emphasis' : 'bg-light-subtle text-dark' }}">
-                    <span class="badge rounded-circle {{ $pendingPayments > 0 ? 'bg-warning text-dark' : 'bg-secondary text-white' }}" style="width:20px;height:20px;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center;">2</span>
-                    <span class="small fw-semibold">Verify Payment</span>
-                    @if ($pendingPayments > 0)
-                        <span class="badge bg-danger rounded-pill">{{ $pendingPayments }}</span>
-                    @endif
-                </a>
-                <i class="bi bi-arrow-right text-muted flex-shrink-0"></i>
-
-                {{-- Step 3 --}}
-                <a href="{{ $go('admin.cycles.index') }}" class="d-flex align-items-center gap-2 border rounded-3 px-3 py-2 flex-shrink-0 text-decoration-none {{ $unsettledOrders > 0 ? 'bg-primary-subtle border-primary-subtle text-primary' : 'bg-light-subtle text-dark' }}">
-                    <span class="badge rounded-circle {{ $unsettledOrders > 0 ? 'bg-primary text-white' : 'bg-secondary text-white' }}" style="width:20px;height:20px;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center;">3</span>
-                    <span class="small fw-semibold">Approve Cycle</span>
-                    @if ($unsettledOrders > 0)
-                        <span class="badge bg-primary rounded-pill">{{ $unsettledOrders }}</span>
-                    @endif
-                </a>
-                <i class="bi bi-arrow-right text-muted flex-shrink-0"></i>
-
-                {{-- Step 4 --}}
-                <a href="{{ $go('admin.withdrawals.index') }}" class="d-flex align-items-center gap-2 border rounded-3 px-3 py-2 flex-shrink-0 text-decoration-none {{ $pendingWithdrawals > 0 ? 'bg-danger-subtle border-danger-subtle text-danger' : 'bg-light-subtle text-dark' }}">
-                    <span class="badge rounded-circle {{ $pendingWithdrawals > 0 ? 'bg-danger text-white' : 'bg-secondary text-white' }}" style="width:20px;height:20px;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center;">4</span>
-                    <span class="small fw-semibold">Review Withdrawal</span>
-                    @if ($pendingWithdrawals > 0)
-                        <span class="badge bg-danger rounded-pill">{{ $pendingWithdrawals }}</span>
-                    @endif
-                </a>
-                <i class="bi bi-arrow-right text-muted flex-shrink-0"></i>
-
-                {{-- Step 5 --}}
-                <a href="{{ $go('admin.dispatch.index') }}" class="d-flex align-items-center gap-2 border rounded-3 px-3 py-2 flex-shrink-0 text-decoration-none {{ $withdrawalsToProcess > 0 ? 'bg-success-subtle border-success-subtle text-success' : 'bg-light-subtle text-dark' }}">
-                    <span class="badge rounded-circle {{ $withdrawalsToProcess > 0 ? 'bg-success text-white' : 'bg-secondary text-white' }}" style="width:20px;height:20px;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center;">5</span>
-                    <span class="small fw-semibold">Dispatch Payout</span>
-                    @if ($withdrawalsToProcess > 0)
-                        <span class="badge bg-success rounded-pill">{{ $withdrawalsToProcess }}</span>
-                    @endif
-                </a>
-            </div>
-        </div>
-    </div>
-
-    {{-- Urgent Actions / Attention Queue Strip --}}
-    <div class="row g-3 mb-4">
-        {{-- Payments --}}
-        <div class="col-6 col-lg-3">
-            <div class="card border h-100 hover-lift {{ $pendingPayments > 0 ? 'border-warning-subtle' : '' }}">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="stat-icon {{ $pendingPayments > 0 ? 'bg-warning-subtle text-warning-emphasis' : 'bg-light text-secondary' }}">
-                            <i class="bi bi-credit-card-2-front"></i>
-                        </div>
-                        @if ($pendingPayments > 0)
-                            <span class="badge bg-warning text-dark rounded-pill">Action needed</span>
-                        @else
-                            <span class="badge bg-light text-success border"><i class="bi bi-check-lg"></i> Clear</span>
-                        @endif
+    <div class="row g-4 mb-4">
+        {{-- To-do --}}
+        <div class="col-lg-{{ $showSetup ? '7' : '12' }}">
+            <div class="card border h-100">
+                <div class="card-header bg-transparent border-bottom-0 pt-3 pb-0 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h2 class="h6 mb-0 fw-bold"><i class="bi bi-list-check me-2 text-primary"></i>What needs you today</h2>
+                        <div class="text-secondary small">Do these in order, top to bottom. Money flows: payment, cycle, withdrawal, payout.</div>
                     </div>
-                    <div class="text-secondary small">Payments to Verify</div>
-                    <div class="fs-4 fw-bold {{ $pendingPayments > 0 ? 'text-warning-emphasis' : 'text-dark' }}">{{ $pendingPayments }}</div>
-                    <a href="{{ $go('admin.payments.index') }}" class="small fw-medium link-primary text-decoration-none mt-1 d-inline-block">
-                        Review submissions &rarr;
-                    </a>
+                    @if ($todo->isNotEmpty())<span class="badge rounded-pill bg-danger">{{ $todo->count() }} to do</span>@endif
+                </div>
+                <div class="card-body">
+                    @forelse ($todo as $t)
+                        <div class="d-flex align-items-center gap-3 p-3 mb-2 rounded-3 border border-{{ $t['tone'] }}-subtle bg-{{ $t['tone'] }}-subtle bg-opacity-50">
+                            <div class="stat-icon bg-{{ $t['tone'] }}-subtle text-{{ $t['tone'] }}-emphasis flex-shrink-0" style="width:44px;height:44px;font-size:1.2rem;"><i class="bi {{ $t['icon'] }}"></i></div>
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="fw-semibold">{{ $t['text'] }}</div>
+                                <div class="text-secondary small">{{ $t['hint'] }}</div>
+                            </div>
+                            <a href="{{ route($t['route'], $t['query'] ?? []) }}" class="btn btn-sm btn-primary flex-shrink-0">{{ $t['btn'] }} <i class="bi bi-arrow-right ms-1"></i></a>
+                        </div>
+                    @empty
+                        <div class="text-center py-4">
+                            <i class="bi bi-check2-circle fs-1 text-success"></i>
+                            <div class="fw-bold mt-1">You're all caught up</div>
+                            <div class="text-secondary small">Nothing is waiting on you right now. New payments, requests and messages will show up here.</div>
+                        </div>
+                    @endforelse
                 </div>
             </div>
         </div>
 
-        {{-- Unsettled Orders --}}
-        <div class="col-6 col-lg-3">
-            <div class="card border h-100 hover-lift {{ $unsettledOrders > 0 ? 'border-primary-subtle' : '' }}">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="stat-icon {{ $unsettledOrders > 0 ? 'bg-primary-subtle text-primary' : 'bg-light text-secondary' }}">
-                            <i class="bi bi-bag-check"></i>
-                        </div>
-                        @if ($unsettledOrders > 0)
-                            <span class="badge bg-primary text-white rounded-pill">Ready for cycle</span>
-                        @else
-                            <span class="badge bg-light text-success border"><i class="bi bi-check-lg"></i> Settled</span>
-                        @endif
+        {{-- Setup guide (new installs only) --}}
+        @if ($showSetup)
+            <div class="col-lg-5">
+                <div class="card border h-100" style="border-color: var(--bs-primary-border-subtle) !important;">
+                    <div class="card-header bg-transparent border-bottom-0 pt-3 pb-0">
+                        <h2 class="h6 mb-0 fw-bold"><i class="bi bi-rocket-takeoff me-2 text-primary"></i>Set up your business</h2>
+                        <div class="text-secondary small">{{ $stepsDone }} of {{ $steps->count() }} steps done</div>
+                        <div class="progress mt-2" style="height: 6px;"><div class="progress-bar" style="width: {{ $stepsDone / $steps->count() * 100 }}%"></div></div>
                     </div>
-                    <div class="text-secondary small">Orders Awaiting Cycle</div>
-                    <div class="fs-4 fw-bold {{ $unsettledOrders > 0 ? 'text-primary' : 'text-dark' }}">{{ $unsettledOrders }}</div>
-                    <a href="{{ $go('admin.cycles.index') }}" class="small fw-medium link-primary text-decoration-none mt-1 d-inline-block">
-                        Open cycle manager &rarr;
-                    </a>
+                    <div class="card-body">
+                        @foreach ($steps as $i => $step)
+                            <div class="d-flex gap-3 mb-3">
+                                <span class="rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0 {{ $step['done'] ? 'bg-success text-white' : 'bg-body-secondary text-secondary' }}" style="width:28px;height:28px;font-size:.8rem;font-weight:700;">
+                                    @if ($step['done'])<i class="bi bi-check-lg"></i>@else{{ $i + 1 }}@endif
+                                </span>
+                                <div class="min-w-0">
+                                    <div class="fw-semibold small {{ $step['done'] ? 'text-decoration-line-through text-secondary' : '' }}">{{ $step['title'] }}</div>
+                                    @unless ($step['done'])
+                                        <div class="text-secondary" style="font-size:.78rem;">{{ $step['text'] }}</div>
+                                        @if ($can($step['route']))<a href="{{ route($step['route']) }}" class="small fw-semibold text-decoration-none">{{ $step['btn'] }} &rarr;</a>@endif
+                                    @endunless
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
                 </div>
             </div>
-        </div>
-
-        {{-- Pending Withdrawals --}}
-        <div class="col-6 col-lg-3">
-            <div class="card border h-100 hover-lift {{ $pendingWithdrawals > 0 ? 'border-danger-subtle' : '' }}">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="stat-icon {{ $pendingWithdrawals > 0 ? 'bg-danger-subtle text-danger' : 'bg-light text-secondary' }}">
-                            <i class="bi bi-hourglass-split"></i>
-                        </div>
-                        @if ($pendingWithdrawals > 0)
-                            <span class="badge bg-danger text-white rounded-pill">Review needed</span>
-                        @else
-                            <span class="badge bg-light text-success border"><i class="bi bi-check-lg"></i> None</span>
-                        @endif
-                    </div>
-                    <div class="text-secondary small">Pending Withdrawals</div>
-                    <div class="fs-4 fw-bold {{ $pendingWithdrawals > 0 ? 'text-danger' : 'text-dark' }}">{{ $pendingWithdrawals }}</div>
-                    <a href="{{ $go('admin.withdrawals.index') }}" class="small fw-medium link-primary text-decoration-none mt-1 d-inline-block">
-                        Approve requests &rarr;
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        {{-- Payout Dispatch --}}
-        <div class="col-6 col-lg-3">
-            <div class="card border h-100 hover-lift {{ $withdrawalsToProcess > 0 ? 'border-success-subtle' : '' }}">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="stat-icon {{ $withdrawalsToProcess > 0 ? 'bg-success-subtle text-success' : 'bg-light text-secondary' }}">
-                            <i class="bi bi-truck"></i>
-                        </div>
-                        @if ($withdrawalsToProcess > 0)
-                            <span class="badge bg-success text-white rounded-pill">Ready to dispatch</span>
-                        @else
-                            <span class="badge bg-light text-secondary border">Queue idle</span>
-                        @endif
-                    </div>
-                    <div class="text-secondary small">Ready for Payout Batch</div>
-                    <div class="fs-4 fw-bold {{ $withdrawalsToProcess > 0 ? 'text-success' : 'text-dark' }}">{{ $withdrawalsToProcess }}</div>
-                    <a href="{{ $go('admin.dispatch.index') }}" class="small fw-medium link-primary text-decoration-none mt-1 d-inline-block">
-                        Generate payout batch &rarr;
-                    </a>
-                </div>
-            </div>
-        </div>
+        @endif
     </div>
 
     {{-- Performance & Financial Metrics Strip --}}
@@ -383,67 +325,39 @@
         </div>
 
         <div class="col-lg-6">
+            @php
+                $tiles = collect([
+                    ['route' => 'admin.plans.create', 'icon' => 'bi-plus-circle', 'tone' => 'primary', 'title' => 'New plan', 'hint' => 'Bundle products and set the price'],
+                    ['route' => 'admin.products.create', 'icon' => 'bi-box-seam', 'tone' => 'success', 'title' => 'Add a product', 'hint' => 'Cost, price and GST rate'],
+                    ['route' => 'admin.members.index', 'icon' => 'bi-people', 'tone' => 'info', 'title' => 'Members', 'hint' => 'Profiles, teams and trees'],
+                    ['route' => 'admin.orders.index', 'icon' => 'bi-bag-check', 'tone' => 'warning', 'title' => 'Orders', 'hint' => 'Every plan purchase'],
+                    ['route' => 'admin.regions.index', 'icon' => 'bi-geo-alt', 'tone' => 'info', 'title' => 'Regions', 'hint' => 'Markets, trees and links'],
+                    ['route' => 'admin.site-content.edit', 'icon' => 'bi-globe2', 'tone' => 'info', 'title' => 'Website', 'hint' => 'Logo, colours and homepage text'],
+                    ['route' => 'admin.plans.index', 'icon' => 'bi-layers', 'tone' => 'primary', 'title' => 'Plans & BV Matrix', 'hint' => 'Bundles, cost limits and BV payouts', 'finance' => true],
+                    ['route' => 'admin.reports.levels', 'icon' => 'bi-bar-chart-steps', 'tone' => 'success', 'title' => 'Level-Wise Distribution', 'hint' => 'Who earns what, level by level', 'finance' => true],
+                    ['route' => 'admin.settings.edit', 'icon' => 'bi-gear', 'tone' => 'warning', 'title' => 'Compensation Rules', 'hint' => 'Percentages, caps and level income', 'finance' => true],
+                    ['route' => 'admin.team.index', 'icon' => 'bi-person-badge', 'tone' => 'secondary', 'title' => 'Sub-admins', 'hint' => 'Who can see and do what'],
+                ])->filter(fn ($t) => $can($t['route']) && (! ($t['finance'] ?? false) || $finance))->values();
+            @endphp
             <div class="card border h-100">
-                <div class="card-header bg-light-subtle border-bottom py-3">
-                    <h2 class="h6 mb-0 fw-semibold"><i class="bi bi-compass me-2 text-primary"></i>Core Administration Modules</h2>
-                    <div class="text-body-tertiary small">Quick shortcuts to platform configuration &amp; reporting</div>
+                <div class="card-header bg-transparent border-bottom-0 pt-3 pb-0">
+                    <h2 class="h6 mb-0 fw-bold"><i class="bi bi-lightning-charge me-2 text-primary"></i>Quick actions</h2>
+                    <div class="text-secondary small">Jump straight to the things you do most.</div>
                 </div>
-                <div class="card-body p-3 d-flex flex-column justify-content-between gap-2">
-                    @if ($finance)
-                    <a href="{{ $go('admin.plans.index') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
-                        <div class="d-flex align-items-center gap-3 min-w-0">
-                            <div class="stat-icon bg-primary-subtle text-primary flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;">
-                                <i class="bi bi-layers"></i>
+                <div class="card-body">
+                    <div class="row g-2">
+                        @foreach ($tiles as $t)
+                            <div class="col-sm-6">
+                                <a href="{{ route($t['route']) }}" class="d-flex align-items-center gap-3 p-3 border rounded-3 text-decoration-none h-100 hover-lift">
+                                    <div class="stat-icon bg-{{ $t['tone'] }}-subtle text-{{ $t['tone'] }}-emphasis flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;"><i class="bi {{ $t['icon'] }}"></i></div>
+                                    <div class="min-w-0">
+                                        <div class="fw-semibold small text-body">{{ $t['title'] }}</div>
+                                        <div class="text-secondary" style="font-size:.74rem;">{{ $t['hint'] }}</div>
+                                    </div>
+                                </a>
                             </div>
-                            <div class="min-w-0">
-                                <div class="fw-semibold text-dark small mb-0.5">Plans &amp; BV Matrix</div>
-                                <div class="text-body-tertiary" style="font-size: .75rem;">Configure product bundles, cost caps &amp; BV payouts</div>
-                            </div>
-                        </div>
-                        <i class="bi bi-chevron-right text-secondary small ms-2 flex-shrink-0"></i>
-                    </a>
-
-                    <a href="{{ $go('admin.reports.levels') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
-                        <div class="d-flex align-items-center gap-3 min-w-0">
-                            <div class="stat-icon bg-success-subtle text-success flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;">
-                                <i class="bi bi-bar-chart-steps"></i>
-                            </div>
-                            <div class="min-w-0">
-                                <div class="fw-semibold text-dark small mb-0.5">Level-Wise Distribution</div>
-                                <div class="text-body-tertiary" style="font-size: .75rem;">Generation tree breakdown &amp; cascade analysis</div>
-                            </div>
-                        </div>
-                        <i class="bi bi-chevron-right text-secondary small ms-2 flex-shrink-0"></i>
-                    </a>
-
-                    <a href="{{ $go('admin.settings.edit') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
-                        <div class="d-flex align-items-center gap-3 min-w-0">
-                            <div class="stat-icon bg-warning-subtle text-warning-emphasis flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;">
-                                <i class="bi bi-gear"></i>
-                            </div>
-                            <div class="min-w-0">
-                                <div class="fw-semibold text-dark small mb-0.5">Compensation Rules</div>
-                                <div class="text-body-tertiary" style="font-size: .75rem;">Live percentages, caps &amp; level commission math</div>
-                            </div>
-                        </div>
-                        <i class="bi bi-chevron-right text-secondary small ms-2 flex-shrink-0"></i>
-                    </a>
-                    @endif
-
-                    @if (auth()->user()->canAccessRoute('admin.site-content.edit'))
-                    <a href="{{ $go('admin.site-content.edit') }}" class="d-flex align-items-center justify-content-between p-3 bg-white border rounded-3 text-decoration-none hover-lift">
-                        <div class="d-flex align-items-center gap-3 min-w-0">
-                            <div class="stat-icon bg-info-subtle text-info-emphasis flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;">
-                                <i class="bi bi-file-earmark-text"></i>
-                            </div>
-                            <div class="min-w-0">
-                                <div class="fw-semibold text-dark small mb-0.5">Website Content</div>
-                                <div class="text-body-tertiary" style="font-size: .75rem;">Edit public homepage banners, copy &amp; FAQs</div>
-                            </div>
-                        </div>
-                        <i class="bi bi-chevron-right text-secondary small ms-2 flex-shrink-0"></i>
-                    </a>
-                    @endif
+                        @endforeach
+                    </div>
                 </div>
             </div>
         </div>

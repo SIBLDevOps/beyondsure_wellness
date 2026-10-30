@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ContactMessage;
 use App\Models\LedgerEntry;
 use App\Models\Member;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\Plan;
+use App\Models\Product;
 use App\Models\Withdrawal;
 use Illuminate\View\View;
 
@@ -23,6 +26,16 @@ class DashboardController extends Controller
                 ->whereDoesntHave('batches', fn ($q) => $q->where('status', 'draft'))
                 ->count(),
             'pendingWithdrawals' => Withdrawal::where('status', 'pending')->count(),
+            'unreadMessages' => ContactMessage::whereNull('read_at')->count(),
+            // People who joined but never completed a purchase: the ones who most need a nudge.
+            'noPurchaseMembers' => Member::whereDoesntHave('orders', fn ($q) => $q->whereIn('status', ['paid', 'settled']))->count(),
+            // The "Set up your business" guide for a new install.
+            'setup' => [
+                'products' => Product::count(),
+                'plans' => Plan::count(),
+                'members' => Member::count(),
+                'productsWithoutGst' => Product::whereNull('gst_pct')->count(),
+            ],
 
             'recentOrders' => Order::with('member', 'plan')->latest()->limit(6)->get(),
             'recentPayments' => Payment::where('status', 'pending')->with('order.member')->latest()->limit(6)->get(),

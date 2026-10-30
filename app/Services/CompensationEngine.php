@@ -76,7 +76,7 @@ class CompensationEngine
     {
         DB::transaction(function () use ($cycle) {
             $this->newBvThisRun = [];
-            $orders = Order::where('status', 'paid')->whereNull('cycle_id')->with('member.sponsor')->get();
+            $orders = Order::where('status', 'paid')->whereNull('cycle_id')->lockForUpdate()->with('member.sponsor')->get();
 
             $poolBv = 0.0;
             $totalPaid = 0.0;

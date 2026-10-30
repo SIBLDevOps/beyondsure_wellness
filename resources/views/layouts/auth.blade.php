@@ -6,6 +6,7 @@
     <title>@yield('title', 'Welcome') — {{ Site::name() }}</title>
     @include('partials.favicon')
     @vite('resources/css/app.css')
+    @include('partials.theme')
 </head>
 <body class="bg-ink-50 min-h-screen flex items-center justify-center px-4 py-10">
     <div class="w-full max-w-sm">
