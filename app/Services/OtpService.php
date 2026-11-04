@@ -72,14 +72,14 @@ class OtpService
     }
 
     /**
-     * Whether the code is shown on screen and logged instead of (or until) being sent by SMS. True when the explicit
-     * switch OTP_SHOW_ON_SCREEN is on (set it on UAT), or on a local / test machine with debug on. A live site has
-     * neither, so it never exposes or logs a code.
+     * Whether the code is shown on screen and logged instead of (or until) being sent by SMS. True on a local, test or
+     * UAT / staging server (APP_ENV local, testing, uat, staging), or when the explicit switch OTP_SHOW_ON_SCREEN is on
+     * (for a UAT server that runs with APP_ENV=production). A live site is APP_ENV=production with the switch off, so
+     * it never exposes or logs a code.
      */
     private function developerMode(): bool
     {
-        return (bool) config('otp.show_on_screen')
-            || ((bool) config('app.debug') && app()->environment('local', 'testing'));
+        return app()->environment('local', 'testing', 'uat', 'staging') || (bool) config('otp.show_on_screen');
     }
 
     public function verify(string $identifier, string $purpose, string $code): array

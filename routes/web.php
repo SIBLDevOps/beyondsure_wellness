@@ -42,16 +42,16 @@ Route::get('/email/unsubscribe/{member}', [\App\Http\Controllers\EmailPreference
 
 Route::middleware('guest:member')->group(function () {
     Route::get('/register', [RegisterController::class, 'create'])->name('register');
-    Route::post('/register', [RegisterController::class, 'store'])->name('register.send')->middleware('throttle:otp-send');
+    Route::post('/register', [RegisterController::class, 'store'])->name('register.send');
     Route::get('/register/verify', [RegisterController::class, 'verifyForm'])->name('register.verify');
-    Route::post('/register/verify', [RegisterController::class, 'verify'])->name('register.verify.submit')->middleware('throttle:otp-verify');
+    Route::post('/register/verify', [RegisterController::class, 'verify'])->name('register.verify.submit');
     Route::post('/register/resend', [RegisterController::class, 'resend'])->name('register.resend');
 
     Route::get('/login', [LoginController::class, 'create'])->name('login');
-    Route::post('/login', [LoginController::class, 'store'])->name('login.send')->middleware('throttle:otp-send');
+    Route::post('/login', [LoginController::class, 'store'])->name('login.send');
     Route::get('/login/verify', [LoginController::class, 'verifyForm'])->name('login.verify');
-    Route::post('/login/verify', [LoginController::class, 'verify'])->name('login.verify.submit')->middleware('throttle:otp-verify');
-    Route::post('/login/resend', [LoginController::class, 'resend'])->name('login.resend')->middleware('throttle:otp-send');
+    Route::post('/login/verify', [LoginController::class, 'verify'])->name('login.verify.submit');
+    Route::post('/login/resend', [LoginController::class, 'resend'])->name('login.resend');
 });
 
 Route::middleware('auth:member')->group(function () {
