@@ -151,6 +151,7 @@ class NetworkService
                     'member_code' => $m->member_code,
                     'position' => $m->position,
                     'is_active' => $m->isActiveThisMonth(),
+                    'status' => $m->status,
                     'bv' => $mBv,
                     'income_to_root' => $earned,
                 ];
@@ -160,6 +161,8 @@ class NetworkService
                 'level' => $level,
                 'count' => count($visible),
                 'active_count' => $activeCount,
+                // How many of them have paid (status active). The rest are "not active": registered but not paid yet.
+                'paid_count' => collect($visible)->where('status', 'active')->count(),
                 'bv' => (float) $bv,
                 'matching_income' => $matchingIncome,
                 'sponsor_income' => $sponsorIncome,
@@ -171,6 +174,62 @@ class NetworkService
         }
 
         return $levels;
+    }
+
+    /**
+     * Where each person sits below $viewer in the binary tree: how many levels down, and in which of the viewer's two
+     * legs. A direct placement on the left is level 1, left leg. Someone placed deeper under that left-hand person is
+     * level 2 (or more), still left leg. People who are not below the viewer are left out of the result.
+     *
+     * @param  iterable<Member>  $people
+     * @return array<int, array{level: int, leg: string}> keyed by member id
+     */
+    public function locate(Member $viewer, iterable $people): array
+    {
+        $found = [];
+        foreach ($people as $person) {
+            $found[$person->id] = $this->relative((int) $viewer->id, $person);
+        }
+
+        return $this->withLegs(array_filter($found));
+    }
+
+    /** The same, but each person is measured from their own sponsor (for the admin list, where sponsors differ). */
+    public function locateUnderSponsors(iterable $people): array
+    {
+        $found = [];
+        foreach ($people as $person) {
+            if ($person->sponsor_id) {
+                $found[$person->id] = $this->relative((int) $person->sponsor_id, $person);
+            }
+        }
+
+        return $this->withLegs(array_filter($found));
+    }
+
+    /** @return array{level: int, firstId: int}|null */
+    private function relative(int $viewerId, Member $person): ?array
+    {
+        $ids = array_values(array_filter(explode('.', (string) $person->path), fn ($v) => $v !== ''));
+        $at = array_search((string) $viewerId, $ids, true);
+
+        if ($at === false) {
+            return null;
+        }
+
+        return [
+            'level' => count($ids) - $at,
+            // The first person below the viewer on the way down: that person's side is the leg.
+            'firstId' => (int) ($ids[$at + 1] ?? $person->id),
+        ];
+    }
+
+    /** @param array<int, array{level: int, firstId: int}> $rows */
+    private function withLegs(array $rows): array
+    {
+        $positions = Member::withoutGlobalScopes()->whereIn('id', array_unique(array_column($rows, 'firstId')))->pluck('position', 'id');
+
+        return array_map(fn (array $r) => ['level' => $r['level'], 'leg' => (string) ($positions[$r['firstId']] ?? '')], $rows);
     }
 
     /** Sponsor chain (who introduced whom) from $member up to the root sponsor. */

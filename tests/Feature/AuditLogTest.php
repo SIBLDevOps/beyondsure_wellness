@@ -54,7 +54,8 @@ class AuditLogTest extends TestCase
 
         $this->actingAs($this->admin, 'web')->put(route('admin.payments.verify', $payment))->assertSessionHasNoErrors();
 
-        $row = AuditLog::firstOrFail();
+        // (The changes it caused are logged too, just before this line, so look the line up by what it is.)
+        $row = AuditLog::where('action', 'admin.payments.verify')->firstOrFail();
         $this->assertSame($this->admin->id, $row->user_id);
         $this->assertSame('Admin Anil', $row->user_name);
         $this->assertSame('admin.payments.verify', $row->action);
@@ -73,11 +74,15 @@ class AuditLogTest extends TestCase
         $this->assertSame(0, AuditLog::count());
     }
 
-    public function test_refused_requests_are_not_recorded_as_actions(): void
+    public function test_a_refused_request_changes_nothing_and_is_recorded_as_denied_not_as_an_action(): void
     {
-        $this->actingAs($this->sub(['members']), 'web')->put(route('admin.payments.verify', $this->pendingPayment()))->assertForbidden();
+        // (This used to expect no line at all. Now a refused attempt IS written down, but as "denied", never as the action.)
+        $payment = $this->pendingPayment();
+        $this->actingAs($this->sub(['members']), 'web')->put(route('admin.payments.verify', $payment))->assertForbidden();
 
-        $this->assertSame(0, AuditLog::count());
+        $this->assertSame(['admin.payments.verify.denied'], AuditLog::pluck('action')->all());
+        $this->assertSame('pending', $payment->fresh()->status);
+        $this->assertSame(0, AuditLog::where('action', 'admin.payments.verify')->count());
     }
 
     public function test_what_was_typed_is_never_stored_only_the_names_of_the_fields(): void

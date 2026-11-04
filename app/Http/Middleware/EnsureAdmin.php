@@ -18,22 +18,46 @@ class EnsureAdmin
         $user = $request->user();
 
         if (! $user || ! $user->isAdminStaff()) {
-            abort(403);
+            $this->refuse($request, $user, null);
         }
 
         $route = $request->route()?->getName();
 
         if ($route && ! $user->canAccessRoute($route)) {
-            abort(403, 'You do not have access to this section. Ask your Super Admin to grant it.');
+            $this->refuse($request, $user, $route, 'You do not have access to this section. Ask your Super Admin to grant it.');
         }
 
         // A cycle settles every region at once and a batch pays members from every region, so someone
         // limited to some regions must not run them (they can still view them).
         if ($route && $user->isRegionRestricted() && in_array($route, self::ALL_REGION_ACTIONS, true)) {
-            abort(403, 'This action affects every region, so it is limited to people with access to all regions.');
+            $this->refuse($request, $user, $route, 'This action affects every region, so it is limited to people with access to all regions.');
         }
 
         return $next($request);
+    }
+
+    /** Writes down that a signed-in person tried something they may not do (what, who, from where), then refuses. */
+    private function refuse(Request $request, $user, ?string $route, string $message = ''): never
+    {
+        if ($user) {
+            $subject = collect($request->route()?->parameters() ?? [])
+                ->filter(fn ($p) => $p instanceof \Illuminate\Database\Eloquent\Model)
+                ->map(fn ($m) => class_basename($m).' #'.$m->getKey())->implode(', ');
+
+            \App\Models\AuditLog::record(
+                ($route ?? $request->path()).'.denied',
+                $subject ?: null,
+                $request->method(),
+                '/'.ltrim($request->path(), '/'),
+                [],
+                $user,
+                $request->ip(),
+                null,
+                'denied',
+            );
+        }
+
+        abort(403, $message);
     }
 
     private const ALL_REGION_ACTIONS = [

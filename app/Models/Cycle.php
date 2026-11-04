@@ -8,6 +8,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Cycle extends Model
 {
+    use \App\Models\Concerns\Audited;
+
+    /** The fields whose changes by staff are written to the audit log. */
+    public function auditFields(): array
+    {
+        return ['period_start', 'period_end', 'status', 'pool_bv', 'total_paid'];
+    }
+
     protected $fillable = ['period_start', 'period_end', 'status', 'pool_bv', 'total_paid', 'approved_by', 'approved_at'];
 
     protected function casts(): array

@@ -50,6 +50,7 @@ class OtpVisibilityTest extends TestCase
 
     public function test_with_the_switch_on_the_code_also_shows_on_the_register_verify_page(): void
     {
+        $this->startRegion();
         $this->asEnvironment('production', debug: false, show: true);
 
         $this->post(route('register.send'), ['name' => 'New Person', 'phone' => '9811100002', 'region' => 'MAIN'])->assertRedirect(route('register.verify'));

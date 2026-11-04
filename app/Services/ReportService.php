@@ -565,6 +565,122 @@ class ReportService
         ];
     }
 
+    // ------------------------------------------------------------------------------------------ 7th level cascade
+
+    public const CASCADE_SLOTS = 7;
+
+    /** Matching income that names the event it came from, in the period (and region, when one is chosen). */
+    private function cascadeEntries(Carbon $from, Carbon $to): Builder
+    {
+        return $this->ledger()->where('type', 'matching')->whereNotNull('source_member_id')->whereBetween('created_at', [$from, $to]);
+    }
+
+    /** The level a matching line was paid at, from its description ("Level 3" / "level 7"); null when it names none. */
+    private function cascadeLevel(string $description): ?int
+    {
+        return preg_match('/level (\d+)/i', $description, $m) ? (int) $m[1] : null;
+    }
+
+    private function cascadeIsRoot(string $description): bool
+    {
+        return str_starts_with($description, 'Root matching');
+    }
+
+    /** One row per level (1 to 7): rate, payments, amount paid, and how much of it was the root's slot. Adds up to the ledger. */
+    public function cascadeSummary(Carbon $from, Carbon $to): array
+    {
+        $rates = Setting::getLevelPercentages();
+        $levels = [];
+        for ($i = 1; $i <= self::CASCADE_SLOTS; $i++) {
+            $levels[$i] = ['level' => $i, 'rate' => (float) ($rates[$i] ?? 0), 'payments' => 0, 'paid' => 0.0, 'root_payments' => 0, 'root_paid' => 0.0];
+        }
+        $beyond = ['payments' => 0, 'paid' => 0.0];
+        $rootPaid = 0.0;
+        $total = 0.0;
+
+        foreach ($this->cascadeEntries($from, $to)->select(['amount', 'description'])->cursor() as $e) {
+            $amount = (float) $e->amount;
+            $level = $this->cascadeLevel((string) $e->description);
+            $total += $amount;
+
+            if ($level === null || $level < 1 || $level > self::CASCADE_SLOTS) {
+                $beyond['payments']++;
+                $beyond['paid'] += $amount;
+
+                continue;
+            }
+            $levels[$level]['payments']++;
+            $levels[$level]['paid'] += $amount;
+            if ($this->cascadeIsRoot((string) $e->description)) {
+                $levels[$level]['root_payments']++;
+                $levels[$level]['root_paid'] += $amount;
+                $rootPaid += $amount;
+            }
+        }
+
+        $events = DB::query()->fromSub($this->cascadeEntries($from, $to)->select('cycle_id', 'source_member_id')->groupBy('cycle_id', 'source_member_id'), 'pairs')->count();
+
+        return [
+            'levels' => array_map(fn ($l) => $l + ['share' => $total > 0 ? round($l['paid'] / $total * 100, 1) : 0.0], $levels),
+            'total' => round($total, 2),
+            'root_paid' => round($rootPaid, 2),
+            'beyond' => $beyond,
+            'events' => $events,
+        ];
+    }
+
+    /**
+     * The events (a match at one member in one cycle), newest first, each with its seven slots: the member paid,
+     * the amount, and whether it was the root's slot. An unused slot is null.
+     */
+    public function cascadeEvents(Carbon $from, Carbon $to, ?int $perPage = 25): LengthAwarePaginator|Collection
+    {
+        $pairs = $this->cascadeEntries($from, $to)
+            ->select('cycle_id', 'source_member_id', DB::raw('max(id) as last_id'))
+            ->groupBy('cycle_id', 'source_member_id')
+            ->orderByDesc('last_id');
+        $pairs = $perPage ? $pairs->paginate($perPage)->withQueryString() : $pairs->get();
+        $items = $pairs instanceof LengthAwarePaginator ? collect($pairs->items()) : $pairs;
+
+        if ($items->isEmpty()) {
+            return $pairs;
+        }
+
+        $entries = $this->cascadeEntries($from, $to)
+            ->whereIn('source_member_id', $items->pluck('source_member_id')->unique())
+            ->with(['member:id,name,member_code,phone,region_id', 'sourceMember:id,name,member_code,region_id', 'cycle:id,period_start,period_end'])
+            ->orderBy('id')->get()
+            ->groupBy(fn ($e) => ($e->cycle_id ?? 0).'-'.$e->source_member_id);
+
+        $events = $items->map(function ($pair) use ($entries) {
+            $group = $entries->get(($pair->cycle_id ?? 0).'-'.$pair->source_member_id, collect());
+            $slots = array_fill(1, self::CASCADE_SLOTS, null);
+            $total = 0.0;
+            foreach ($group as $e) {
+                $level = $this->cascadeLevel((string) $e->description);
+                $total += (float) $e->amount;
+                if ($level === null || $level < 1 || $level > self::CASCADE_SLOTS) {
+                    continue;
+                }
+                $slots[$level] = [
+                    'member' => $e->member,
+                    'amount' => (float) ($slots[$level]['amount'] ?? 0) + (float) $e->amount,
+                    'root' => $this->cascadeIsRoot((string) $e->description),
+                ];
+            }
+
+            return [
+                'source' => $group->first()?->sourceMember,
+                'cycle' => $group->first()?->cycle,
+                'date' => $group->last()?->created_at,
+                'slots' => $slots,
+                'total' => round($total, 2),
+            ];
+        })->filter(fn ($e) => $e['source'] !== null)->values();
+
+        return $pairs instanceof LengthAwarePaginator ? $pairs->setCollection($events) : $events;
+    }
+
     public function levelIncomeDistribution(Carbon $from, Carbon $to): array
     {
         $levelPcts = Setting::getLevelPercentages();

@@ -20,7 +20,7 @@
         <div class="card-body p-3">
             <div class="small fw-semibold text-secondary mb-2"><i class="bi bi-signpost-split text-primary me-1"></i>Setting up a region</div>
             <div class="row g-2">
-                @foreach ([['1', 'Create the region', 'Name and code'], ['2', 'Design its plans', 'Plans, New plan, choose the region'], ['3', 'Share the first-member link', 'Shown on the card until the root joins'], ['4', 'Root joins, then members invite', 'Everyone after joins through member links']] as [$n, $t, $d])
+                @foreach ([['1', 'Create the region', 'Name and code'], ['2', 'Design its plans', 'Plans, New plan, choose the region'], ['3', 'Create the root member', 'Only you can start a region'], ['4', 'Root signs in, then members invite', 'Everyone after joins through member links']] as [$n, $t, $d])
                     <div class="col-md-3"><div class="border rounded-3 px-3 py-2 h-100"><span class="badge bg-primary rounded-circle me-1">{{ $n }}</span><span class="fw-semibold small">{{ $t }}</span><div class="text-secondary" style="font-size:.72rem">{{ $d }}</div></div></div>
                 @endforeach
             </div>
@@ -54,7 +54,7 @@
                                 <span class="font-monospace text-secondary">({{ $region->rootMember->member_code }})</span>
                                 @if ($can('admin.members.network'))<a href="{{ route('admin.members.network', $region->rootMember) }}" class="ms-1 text-decoration-none">View tree &rarr;</a>@endif
                             @else
-                                <span class="text-warning-emphasis">No members yet. The first person to join becomes the root.</span>
+                                <span class="text-warning-emphasis">Not started yet. Create the root member below to open this region.</span>
                             @endif
                         </div>
 
@@ -65,11 +65,26 @@
                                 <strong>Root created.</strong> New members now join through a member's own Left or Right invite link, so there is no region link to share.
                             </div>
                         @else
-                            <label class="small text-secondary mb-1">First-member link <span class="text-body-tertiary">(the first person to use it becomes this region's root)</span></label>
-                            <div class="input-group input-group-sm mb-3">
-                                <input class="form-control font-monospace" readonly value="{{ $region->registerUrl() }}" id="link-{{ $region->id }}">
-                                <button type="button" class="btn btn-outline-secondary" data-copy="link-{{ $region->id }}"><i class="bi bi-clipboard"></i> Copy</button>
-                            </div>
+                            {{-- Only the admin starts a region: nobody can take the root seat by signing up. --}}
+                            @if ($can('admin.regions.root'))
+                                <form method="POST" action="{{ route('admin.regions.root', $region) }}" class="rounded-3 border p-3 mb-3 bg-body-tertiary">
+                                    @csrf
+                                    <div class="fw-semibold small mb-1"><i class="bi bi-person-plus me-1 text-primary"></i>Create the root member</div>
+                                    <div class="text-secondary mb-2" style="font-size:.74rem;">
+                                        The root is the top of this region's tree and earns on every match in it, so only you can start a region. They sign in with their mobile number, choose a plan and activate. Everyone else joins through member invite links.
+                                    </div>
+                                    <div class="row g-2">
+                                        <div class="col-12"><input name="name" class="form-control form-control-sm" placeholder="Full name" required maxlength="255" aria-label="Root member's full name"></div>
+                                        <div class="col-6"><input name="phone" class="form-control form-control-sm" placeholder="10-digit mobile" required pattern="[6-9][0-9]{9}" maxlength="10" inputmode="numeric" aria-label="Mobile number"></div>
+                                        <div class="col-6"><input name="email" type="email" class="form-control form-control-sm" placeholder="Email (optional)" maxlength="255" aria-label="Email"></div>
+                                    </div>
+                                    @if ($errors->any() && old('name') !== null && (int) request()->route('region') === $region->id)
+                                    @endif
+                                    <button class="btn btn-sm btn-success mt-2"><i class="bi bi-check-lg me-1"></i>Create root and open the region</button>
+                                </form>
+                            @else
+                                <div class="alert alert-warning py-2 small mb-3">Ask the Super Admin to create this region's root member.</div>
+                            @endif
                         @endif
 
                         @if ($region->plans_count === 0)

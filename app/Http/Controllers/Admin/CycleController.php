@@ -24,6 +24,8 @@ class CycleController extends Controller
             // A cycle covers every region at once, so its pool and payout totals are company-wide. Someone limited
             // to some regions must not see figures that include regions they cannot open.
             'hideTotals' => auth()->user()->isRegionRestricted(),
+            // Nothing can be created until the compensation settings have been saved and make sense.
+            'settingsProblems' => \App\Support\CompensationSettings::problems(),
         ]);
     }
 
@@ -40,7 +42,11 @@ class CycleController extends Controller
             'period_end.after_or_equal' => 'Period end date must be on or after the period start date.',
         ]);
 
-        $this->cycles->create($data['period_start'], $data['period_end']);
+        try {
+            $this->cycles->create($data['period_start'], $data['period_end']);
+        } catch (\RuntimeException $e) {
+            return back()->withInput()->withErrors(['cycle' => $e->getMessage()]);
+        }
 
         return back()->with('status', 'Cycle created as draft.');
     }

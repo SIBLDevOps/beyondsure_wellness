@@ -32,9 +32,11 @@ class RegisterController extends Controller
         $requested = $request->filled('region') ? Region::where('code', strtoupper((string) $request->query('region')))->first() : null;
         $planRegion = Plan::whereKey($request->session()->get('intended_plan_id'))->first()?->region;
 
-        $regions = Region::where('is_active', true)->orderBy('sort_order')->get();
+        // Only regions the admin has started (they have a root) take sign-ups; the others are not offered.
+        $regions = Region::where('is_active', true)->orderBy('sort_order')->get()->filter(fn (Region $r) => $r->root() !== null)->values();
         // Who decides the region: the sponsor's, else the link's, else the plan being bought, else the only one open.
         $region = $sponsor?->region ?? $requested ?? $planRegion ?? ($regions->count() === 1 ? $regions->first() : null);
+        $regionClosed = $regions->isEmpty() || ($region !== null && $region->root() === null);
 
         // The plans people can choose from: those of their region, or every open region when the region is not decided yet.
         $plans = Plan::where('is_active', true)
@@ -61,6 +63,7 @@ class RegisterController extends Controller
         }
 
         return view('auth.register', [
+            'regionClosed' => $regionClosed,
             'sponsorLocked' => $sponsor,
             'planLocked' => $linkedPlan && $region ? $linkedPlan : null,
             'plans' => $plans,
@@ -76,14 +79,12 @@ class RegisterController extends Controller
     }
 
     /**
-     * Admin setting (Settings -> registration). The very first member of a region has nobody to sponsor
-     * them, so registration stays open while that region is empty — otherwise nobody could ever join.
+     * Admin setting (Settings -> registration). It applies to everyone who signs up: the top of a region's tree is never
+     * created here (the admin starts a region by creating its root), so there is no one who is exempt.
      */
     private function sponsorRequired(?Region $region = null): bool
     {
-        $hasMembers = $region ? $region->members()->exists() : Member::exists();
-
-        return (bool) Setting::get('require_sponsor', 0) && $hasMembers;
+        return (bool) Setting::get('require_sponsor', 0);
     }
 
     public function store(Request $request): RedirectResponse
@@ -142,6 +143,10 @@ class RegisterController extends Controller
         if (! $region->is_active) {
             return back()->withInput()->withErrors(['region' => "The {$region->name} region is not open for new members right now."]);
         }
+        // A region is started by the admin, who creates its root. Nobody can become the root by signing up here.
+        if (! $region->root()) {
+            return back()->withInput()->withErrors(['region' => "The {$region->name} region has not been opened yet. Please contact the company for your invitation."]);
+        }
 
         // One mobile number, one region — ever. Say exactly where it already lives.
         if ($existing = Member::with('region')->where('phone', $data['phone'])->first()) {
@@ -157,14 +162,12 @@ class RegisterController extends Controller
             return back()->withInput()->withErrors(['sponsor_code' => "A sponsor code is required to join the {$region->name} region. Ask the person who invited you for their link."]);
         }
 
-        // Ask which plan they want. It must be an active plan of their region; a region with no plans does not ask.
-        $available = Plan::where('region_id', $region->id)->where('is_active', true)->pluck('id');
-        if ($available->isNotEmpty()) {
-            if (empty($data['plan_id'])) {
-                return back()->withInput()->withErrors(['plan_id' => 'Please choose the plan you want to buy.']);
-            }
+        // The plan is optional: a link without a product, or someone who wants to decide later, still registers and picks
+        // from the plans afterwards. A plan that IS named must be an active plan of their region.
+        if (! empty($data['plan_id'])) {
+            $available = Plan::where('region_id', $region->id)->where('is_active', true)->pluck('id');
             if (! $available->contains((int) $data['plan_id'])) {
-                return back()->withInput()->withErrors(['plan_id' => 'That plan is not available in the '.$region->name.' region. Please choose one from the list.']);
+                return back()->withInput()->withErrors(['plan_id' => 'That plan is not available in the '.$region->name.' region. Please choose one from the list or decide later.']);
             }
         } else {
             $data['plan_id'] = null;
@@ -250,6 +253,13 @@ class RegisterController extends Controller
         // first member of a region becomes that region's root (no parent).
         if (! $sponsor) {
             $sponsor = $region->root();
+
+            // Never create a root here (not even from an old, half-finished sign-up): only the admin starts a region.
+            if (! $sponsor) {
+                $request->session()->forget('pending_registration');
+
+                return redirect()->route('register')->withErrors(['region' => "The {$region->name} region has not been opened yet. Please contact the company for your invitation."]);
+            }
         }
 
         $placement = $this->members->placeUnderSponsor($sponsor, $sponsor ? ($pending['side'] ?? null) : null);

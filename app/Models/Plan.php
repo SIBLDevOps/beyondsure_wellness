@@ -10,6 +10,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[\Illuminate\Database\Eloquent\Attributes\ScopedBy([\App\Models\Scopes\AdminRegionScope::class])]
 class Plan extends Model
 {
+    use \App\Models\Concerns\Audited;
+
+    /** The fields whose changes by staff are written to the audit log. */
+    public function auditFields(): array
+    {
+        return ['name', 'price', 'bv', 'is_active', 'region_id'];
+    }
+
     protected $fillable = ['name', 'slug', 'description', 'price', 'bv', 'is_active', 'region_id'];
 
     protected static function booted(): void

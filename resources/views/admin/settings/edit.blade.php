@@ -8,12 +8,15 @@
         $activeLevels = is_array($oldLevels) ? array_values($oldLevels) : array_values($levelPcts ?? [10, 10, 10, 10, 10, 10, 10]);
         $sections = [
             ['registration', 'bi-person-plus', 'Registration'],
+            ['inactive', 'bi-person-dash', 'Non-active members'],
             ['tax', 'bi-receipt', 'Tax (GST)'],
             ['split', 'bi-pie-chart', 'Revenue split'],
             ['rates', 'bi-percent', 'Direct & pool rates'],
             ['levels', 'bi-layers-half', 'Level-wise matching'],
+            ['root', 'bi-diagram-3', 'Top of the tree'],
             ['breaker', 'bi-shield-check', 'Circuit breaker'],
             ['caps', 'bi-speedometer2', 'Matching caps'],
+            ['eligibility', 'bi-funnel', 'Matching eligibility'],
             ['ranks', 'bi-trophy', 'Ranks'],
         ];
     @endphp
@@ -89,14 +92,47 @@
                             <div>
                                 <label class="fw-semibold small mb-1 d-block" for="require_sponsor">Sponsor code is required to register</label>
                                 <div class="field-hint mt-0" style="max-width: 56ch;">
-                                    When on, every sign-up must carry a sponsor code. The very first member of a region is exempt (there is
-                                    nobody to sponsor them yet), so a new region can always be started.
+                                    When on, every sign-up must carry a sponsor code, with no exception. The admin starts a region by creating its
+                                    root member on the Regions page, so nobody can become the root by signing up.
                                 </div>
                             </div>
                             <div class="form-check form-switch fs-4 mb-0 flex-none">
                                 <input type="checkbox" class="form-check-input" role="switch" id="require_sponsor" name="require_sponsor" value="1"
                                     @checked(old('require_sponsor', $requireSponsor))>
                             </div>
+                        </div>
+                    </div>
+                </section>
+
+                {{-- People who registered but have not paid yet --}}
+                @php
+                    $inactiveRows = [
+                        ['show_inactive_in_downline', 'Show them in their sponsor\'s downline', 'People who registered but have not paid yet appear in their sponsor\'s team, tree and levels with a "Not active" label. Switch off to show only people who have paid. The Pending customers list always shows them.', \App\Support\CompensationSettings::showInactiveInDownline()],
+                        ['inactive_earns_sponsor', 'Let them earn sponsor income', 'When someone who has not paid yet sponsored a person who bought, should they receive the sponsor bonus? Off: the bonus is not paid and stays with the company.', \App\Support\CompensationSettings::inactiveEarnsSponsor()],
+                        ['inactive_earns_matching', 'Let them earn matching income', 'When a member who has not paid yet has balanced legs, should they receive matching income? Off: the match is used up but nothing is paid to them. Active people above them are paid as normal.', \App\Support\CompensationSettings::inactiveEarnsMatching()],
+                    ];
+                @endphp
+                <section class="card border settings-card mb-4" id="sec-inactive">
+                    <div class="card-header border-bottom-0">
+                        <div class="chip warn"><i class="bi bi-person-dash"></i></div>
+                        <div>
+                            <h2 class="card-title">Non-active members</h2>
+                            <p class="card-sub">A person is <strong>non-active</strong> until their first payment is approved. Choose what they can see and what they can earn. Self income is never affected, because it comes from their own purchase.</p>
+                        </div>
+                    </div>
+                    <div class="card-body pt-0">
+                        <div class="d-flex flex-column gap-2">
+                            @foreach ($inactiveRows as [$name, $title, $hint, $on])
+                                <div class="d-flex align-items-start justify-content-between gap-3 p-3 border rounded-3">
+                                    <div>
+                                        <label class="fw-semibold small mb-1 d-block" for="{{ $name }}">{{ $title }}</label>
+                                        <div class="field-hint mt-0" style="max-width: 62ch;">{{ $hint }}</div>
+                                    </div>
+                                    <div class="form-check form-switch fs-4 mb-0 flex-none">
+                                        <input type="checkbox" class="form-check-input" role="switch" id="{{ $name }}" name="{{ $name }}" value="1" @checked(old($name, $on))>
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
                     </div>
                 </section>
@@ -313,6 +349,35 @@
                 </section>
 
                 {{-- Circuit breaker --}}
+                {{-- The root of each region's tree is never outside the level window --}}
+                <section class="card border settings-card mb-4" id="sec-root">
+                    <div class="card-header border-bottom-0">
+                        <div class="chip good"><i class="bi bi-diagram-3"></i></div>
+                        <div>
+                            <h2 class="card-title">Top of the tree (the root)</h2>
+                            <p class="card-sub">
+                                The <strong>root</strong> is the member you create to start a region (Regions page). Matching pays the matched member and the people above them,
+                                one slot per level. When a match happens deeper than the levels reach, the root <strong>takes the last of the slots</strong> and is paid that level's rate,
+                                so it is never outside the window and the number of people paid stays the same.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="card-body pt-0">
+                        <input type="hidden" name="root_section" value="1">
+                        <div class="d-flex flex-column gap-2">
+                            <div class="d-flex align-items-start justify-content-between gap-3 p-3 border rounded-3">
+                                <div>
+                                    <label class="fw-semibold small mb-1 d-block" for="root_matching_enabled">Keep the root in the window on deep matches</label>
+                                    <div class="field-hint mt-0" style="max-width: 62ch;">On: the root earns on every match in their tree, however deep, in the last slot (the person who would have had it is just outside). Off: the root is paid only when a match is within the levels, like everyone else. The caps and the circuit breaker apply to the root too.</div>
+                                </div>
+                                <div class="form-check form-switch fs-4 mb-0 flex-none">
+                                    <input type="checkbox" class="form-check-input" role="switch" id="root_matching_enabled" name="root_matching_enabled" value="1" @checked(old('root_matching_enabled', \App\Support\CompensationSettings::rootAlwaysPaid()))>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <section class="card border settings-card mb-4" id="sec-breaker">
                     <div class="card-header border-bottom-0">
                         <div class="chip warn"><i class="bi bi-shield-check"></i></div>
@@ -366,6 +431,34 @@
                                     <input id="match_cap_per_week" name="match_cap_per_week" type="number" step="0.01" min="0"
                                         value="{{ old('match_cap_per_week', $values['match_cap_per_week']) }}" class="form-control" required>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {{-- Matching eligibility: the least new volume a layer must make in a cycle before its match is paid --}}
+                <section class="card border settings-card mb-4" id="sec-eligibility">
+                    <div class="card-header border-bottom-0">
+                        <div class="chip good"><i class="bi bi-funnel"></i></div>
+                        <div>
+                            <h2 class="card-title">Matching eligibility</h2>
+                            <p class="card-sub">
+                                The least <strong>new volume</strong> (BV) a member's team must bring in during a cycle before their match is paid. Below it, the match is used up
+                                but not paid. A layer is a member's generation below the top of the tree. Enter <strong>0</strong> for no minimum.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="card-body pt-0">
+                        <div class="row g-3">
+                            @foreach ($eligibility['layers'] as $layer => $min)
+                                <div class="col-6 col-md-3">
+                                    <label class="field-label" for="eligibility_{{ $layer }}">Layer {{ $layer }}</label>
+                                    <input id="eligibility_{{ $layer }}" name="eligibility[]" type="number" step="0.01" min="0" value="{{ old('eligibility.'.($layer - 1), $min) }}" class="form-control @error('eligibility.'.($layer - 1)) is-invalid @enderror">
+                                </div>
+                            @endforeach
+                            <div class="col-6 col-md-3">
+                                <label class="field-label" for="eligibility_fallback">Deeper layers</label>
+                                <input id="eligibility_fallback" name="eligibility_fallback" type="number" step="0.01" min="0" value="{{ old('eligibility_fallback', $eligibility['fallback']) }}" class="form-control @error('eligibility_fallback') is-invalid @enderror">
                             </div>
                         </div>
                     </div>

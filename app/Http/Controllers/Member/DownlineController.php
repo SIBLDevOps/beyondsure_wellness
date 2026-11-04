@@ -14,6 +14,12 @@ class DownlineController extends Controller
 {
     public function __construct(private readonly NetworkService $network) {}
 
+    /** The admin decides whether people who have not paid yet show in the downline (Settings, "Non-active members"). */
+    private function hideUnpaid(): bool
+    {
+        return ! \App\Support\CompensationSettings::showInactiveInDownline();
+    }
+
     /**
      * Deliberately takes no {member} route parameter — always resolves to the logged-in
      * member from the session, so a member can never view another member's subtree by
@@ -27,10 +33,10 @@ class DownlineController extends Controller
 
         return view('member.downline', [
             'member' => $member,
-            'tree' => $this->network->buildTree($member, $depth, activeOnly: true),
+            'tree' => $this->network->buildTree($member, $depth, activeOnly: $this->hideUnpaid()),
             'depth' => $depth,
             'legTotal' => $member->legTotal,
-            'levelBreakdown' => $this->network->levelBreakdown($member, $depth, activeOnly: true),
+            'levelBreakdown' => $this->network->levelBreakdown($member, $depth, activeOnly: $this->hideUnpaid()),
         ]);
     }
 
@@ -40,9 +46,10 @@ class DownlineController extends Controller
         $nowMonth = now()->month;
         $nowYear = now()->year;
 
-        // Only people whose payment was approved are downline. The rest are on the Pending page.
+        // Everyone the member sponsored, with those who have not paid labelled "Not active", unless the admin chose to
+        // show only people who have paid (they are always on the Pending page either way).
         $directs = Member::where('sponsor_id', $member->id)
-            ->where('status', 'active')
+            ->when($this->hideUnpaid(), fn ($q) => $q->where('status', 'active'))
             ->with(['placementParent', 'legTotal'])
             ->withCount('sponsoredMembers')
             ->withCount(['orders as paid_orders_count' => fn ($q) => $q->whereIn('status', ['paid', 'settled'])])
@@ -65,7 +72,7 @@ class DownlineController extends Controller
         $depth = (int) $request->input('depth', 7);
         $depth = max(2, min(12, $depth));
         $cascadeDepth = (int) Setting::get('cascade_depth', 7);
-        $levels = $this->network->levelBreakdown($member, $depth, activeOnly: true);
+        $levels = $this->network->levelBreakdown($member, $depth, activeOnly: $this->hideUnpaid());
 
         return view('member.levels', [
             'levels' => $levels,
@@ -91,15 +98,22 @@ class DownlineController extends Controller
 
         $people = Member::where('sponsor_id', $member->id)
             ->where('status', '!=', 'active')
-            ->with(['interestedPlan', 'orders.payment', 'orders.plan'])
+            ->with(['interestedPlan', 'placementParent', 'orders.payment', 'orders.plan'])
             ->latest()
-            ->get()
-            ->each(function (Member $m) use ($brand) {
-                $m->stage = $m->activationStage();
-                $plan = $m->orders->where('status', 'pending_payment')->first()?->plan ?? $m->interestedPlan;
-                $m->planName = $plan?->name;
-                $m->reminderUrl = \App\Support\Reminder::whatsappUrl($m, $plan?->name, $brand);
-            });
+            ->get();
+
+        // Which level below you, and which of your two legs, each person was placed in.
+        $where = $this->network->locate($member, $people);
+
+        $people->each(function (Member $m) use ($brand, $where, $member) {
+            $m->stage = $m->activationStage();
+            $plan = $m->orders->where('status', 'pending_payment')->first()?->plan ?? $m->interestedPlan;
+            $m->planName = $plan?->name;
+            $m->reminderUrl = \App\Support\Reminder::whatsappUrl($m, $plan?->name, $brand);
+            $m->level = $where[$m->id]['level'] ?? null;
+            $m->leg = ($where[$m->id]['leg'] ?? '') ?: null;
+            $m->placedUnder = $m->placement_id === $member->id ? 'you' : $m->placementParent?->name;
+        });
 
         return view('member.pending', ['people' => $people]);
     }

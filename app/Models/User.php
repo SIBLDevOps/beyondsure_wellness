@@ -15,6 +15,14 @@ use Illuminate\Notifications\Notifiable;
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable
 {
+    use \App\Models\Concerns\Audited;
+
+    /** The fields whose changes by staff are written to the audit log. */
+    public function auditFields(): array
+    {
+        return ['name', 'email', 'role', 'is_active', 'permissions', 'region_ids'];
+    }
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 

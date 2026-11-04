@@ -12,6 +12,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[\Illuminate\Database\Eloquent\Attributes\ScopedBy([\App\Models\Scopes\AdminRegionScope::class])]
 class Region extends Model
 {
+    use \App\Models\Concerns\Audited;
+
+    /** The fields whose changes by staff are written to the audit log. */
+    public function auditFields(): array
+    {
+        return ['name', 'code', 'is_active'];
+    }
+
     protected $fillable = ['name', 'code', 'description', 'is_active', 'sort_order'];
 
     protected function casts(): array

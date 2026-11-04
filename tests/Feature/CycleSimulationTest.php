@@ -37,6 +37,7 @@ class CycleSimulationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->configureCompensation();
         Mail::fake();
         $this->region = Region::where('code', 'MAIN')->firstOrFail();
         $this->admin = User::create(['name' => 'Admin', 'email' => 'a@t.com', 'password' => 'secret123', 'role' => 'admin', 'is_active' => true]);

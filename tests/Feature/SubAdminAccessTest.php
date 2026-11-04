@@ -23,6 +23,7 @@ class SubAdminAccessTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->configureCompensation();
 
         $this->super = User::create(['name' => 'Super', 'email' => 'super@t.com', 'password' => 'secret123', 'role' => 'admin']);
         Setting::set('gst_pct', 12);

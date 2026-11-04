@@ -9,6 +9,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 #[\Illuminate\Database\Eloquent\Attributes\ScopedBy([\App\Models\Scopes\AdminRegionScope::class])]
 class Withdrawal extends Model
 {
+    use \App\Models\Concerns\Audited;
+
+    /** The fields whose changes by staff are written to the audit log. */
+    public function auditFields(): array
+    {
+        return ['status', 'amount'];
+    }
+
     protected $fillable = [
         'member_id', 'amount', 'status', 'payout_reference',
         'approved_by', 'approved_at', 'paid_at',

@@ -9,6 +9,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Product extends Model
 {
+    use \App\Models\Concerns\Audited;
+
+    /** The fields whose changes by staff are written to the audit log. */
+    public function auditFields(): array
+    {
+        return ['name', 'sku', 'category_id', 'cost_price', 'sell_price', 'gst_pct', 'is_active'];
+    }
+
     protected $fillable = [
         'category_id', 'name', 'sku', 'description', 'cost_price', 'sell_price', 'gst_pct',
         'benefit_group', 'usage_limit', 'usage_period', 'is_active',

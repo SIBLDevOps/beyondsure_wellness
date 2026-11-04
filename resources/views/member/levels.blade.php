@@ -99,7 +99,12 @@
                                     Level {{ $row['level'] }}
                                 </span>
                             </td>
-                            <td class="text-center fw-medium">{{ $row['count'] }}</td>
+                            <td class="text-center fw-medium">
+                                {{ $row['count'] }}
+                                @if (($row['paid_count'] ?? $row['count']) < $row['count'])
+                                    <div class="text-warning-emphasis fw-normal" style="font-size: .7rem;">{{ $row['count'] - $row['paid_count'] }} not active</div>
+                                @endif
+                            </td>
                             <td class="text-center">{{ $row['active_count'] }}</td>
                             <td>
                                 @if ($row['level'] === 1)

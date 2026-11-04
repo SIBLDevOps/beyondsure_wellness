@@ -62,6 +62,7 @@ class RegionTest extends TestCase
 
     public function test_a_mobile_number_cannot_join_a_second_region_and_the_message_names_the_first(): void
     {
+        $this->startRegion($this->mh, 'MH Root');   // Maharashtra is started, so the phone check is reached
         $this->member('GJ0001', $this->gj, null, '9876543210');
 
         $res = $this->from(route('register'))->post(route('register.send'), [
@@ -84,7 +85,8 @@ class RegionTest extends TestCase
 
     public function test_the_first_member_of_a_region_is_its_root_and_the_next_joins_under_it(): void
     {
-        $first = $this->register(['phone' => '9000000001', 'region' => 'GJ']);
+        // The root is created by the admin (nobody can become the root by signing up); the next person joins under it.
+        $first = $this->startRegion($this->gj, 'GJ Root', '9000000001');
         $this->assertNull($first->placement_id);
         $this->assertSame($this->gj->id, $first->region_id);
 
@@ -94,8 +96,8 @@ class RegionTest extends TestCase
 
     public function test_each_region_has_its_own_tree_root(): void
     {
-        $gjRoot = $this->register(['phone' => '9000000001', 'region' => 'GJ']);
-        $mhRoot = $this->register(['phone' => '9000000002', 'region' => 'MH']);
+        $gjRoot = $this->startRegion($this->gj, 'GJ Root', '9000000001');
+        $mhRoot = $this->startRegion($this->mh, 'MH Root', '9000000002');
 
         $this->assertNull($gjRoot->placement_id);
         $this->assertNull($mhRoot->placement_id, 'A new region starts its own tree; it must not hang under another region.');
@@ -135,13 +137,17 @@ class RegionTest extends TestCase
         $this->post(route('register.send'), ['name' => 'X', 'phone' => '9000000006', 'region' => 'MH'])->assertSessionHasErrors('region');
     }
 
-    public function test_sponsor_required_setting_is_per_region(): void
+    public function test_sponsor_required_setting_applies_to_every_started_region_and_an_unstarted_one_takes_no_sign_ups(): void
     {
+        // (This used to say an empty region let its first person in without a sponsor. Now a region is started by the admin.)
         Setting::set('require_sponsor', 1);
-        $this->member('GJ0001', $this->gj); // Gujarat has people, Maharashtra is empty
+        $this->member('GJ0001', $this->gj);   // Gujarat has its root; Maharashtra is not started yet
 
         $this->post(route('register.send'), ['name' => 'X', 'phone' => '9000000007', 'region' => 'GJ'])->assertSessionHasErrors('sponsor_code');
-        $this->post(route('register.send'), ['name' => 'Y', 'phone' => '9000000008', 'region' => 'MH'])->assertSessionHasNoErrors();
+        $this->post(route('register.send'), ['name' => 'Y', 'phone' => '9000000008', 'region' => 'MH'])->assertSessionHasErrors('region');
+
+        $this->startRegion($this->mh, 'MH Root', '9000000090');
+        $this->post(route('register.send'), ['name' => 'Y', 'phone' => '9000000008', 'region' => 'MH'])->assertSessionHasErrors('sponsor_code');
     }
 
     public function test_a_member_can_only_buy_plans_of_their_own_region(): void
@@ -174,29 +180,30 @@ class RegionTest extends TestCase
         $this->assertSame(0, Order::count());
     }
 
-    public function test_admin_can_create_a_region_and_see_its_invite_link(): void
+    public function test_admin_can_create_a_region_and_is_offered_to_create_its_root_not_a_public_link(): void
     {
         $this->actingAs($this->admin())->post(route('admin.regions.store'), ['name' => 'Delhi NCR', 'code' => 'delhi ncr'])
             ->assertRedirect(route('admin.regions.index'));
 
         $this->assertDatabaseHas('regions', ['name' => 'Delhi NCR', 'code' => 'DELHINCR']);
         $this->actingAs($this->admin())->get(route('admin.regions.index'))->assertOk()
-            ->assertSee('Delhi NCR')->assertSee('register?region=DELHINCR', false);
+            ->assertSee('Delhi NCR')->assertSee('Create the root member')->assertDontSee('register?region=DELHINCR', false);
     }
 
-    public function test_the_region_link_is_hidden_once_the_region_has_a_root(): void
+    public function test_the_create_root_form_goes_away_once_the_region_has_a_root(): void
     {
         $admin = $this->admin();
 
-        // Empty region: the first-member link is shown.
-        $this->actingAs($admin, 'web')->get(route('admin.regions.index'))->assertSee('register?region=GJ', false)->assertDontSee('Root created');
+        // A region that is not started offers the form (and never a public link).
+        $this->actingAs($admin, 'web')->get(route('admin.regions.index'))
+            ->assertSee(route('admin.regions.root', $this->gj), false)->assertDontSee('Root created')->assertDontSee('register?region=GJ', false);
 
         $this->member('GJROOT', $this->gj);
 
         $page = $this->actingAs($admin, 'web')->get(route('admin.regions.index'));
-        $page->assertSee('Root created')->assertDontSee('register?region=GJ', false);
-        // A region that is still empty keeps its link.
-        $page->assertSee('register?region=MH', false);
+        $page->assertSee('Root created')->assertDontSee(route('admin.regions.root', $this->gj), false);
+        // A region that is still not started keeps its form.
+        $page->assertSee(route('admin.regions.root', $this->mh), false);
     }
 
     public function test_region_code_is_locked_once_members_joined(): void

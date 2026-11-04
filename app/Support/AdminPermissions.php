@@ -75,6 +75,7 @@ class AdminPermissions
         'admin.audit-log.' => 'super',
         'admin.reports.payouts' => 'finance',
         'admin.reports.levels' => 'finance',
+        'admin.reports.cascade' => 'finance',
         'admin.reports.pending' => 'reports.pending',
         'admin.reports.repurchase' => 'reports.repurchase',
     ];

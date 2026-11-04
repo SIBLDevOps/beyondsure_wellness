@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Cycle;
 use App\Models\User;
+use App\Support\CompensationSettings;
 use Illuminate\Support\Facades\DB;
 
 class CycleService
@@ -12,6 +13,9 @@ class CycleService
 
     public function create(string $periodStart, string $periodEnd): Cycle
     {
+        // A cycle posts real income, so it never runs on built-in defaults: the settings must have been saved on purpose.
+        CompensationSettings::assertReady();
+
         return Cycle::create([
             'period_start' => $periodStart,
             'period_end' => $periodEnd,
@@ -29,6 +33,9 @@ class CycleService
      */
     public function approve(Cycle $cycle, User $admin): void
     {
+        // Checked again here: the settings could have been changed since the draft was made.
+        CompensationSettings::assertReady();
+
         // Ranks before the cycle, to tell people whose rank went up.
         $ranksBefore = \App\Models\Member::withoutGlobalScopes()->pluck('rank', 'id');
 

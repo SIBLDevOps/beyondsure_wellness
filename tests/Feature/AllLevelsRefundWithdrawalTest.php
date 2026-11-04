@@ -47,6 +47,7 @@ class AllLevelsRefundWithdrawalTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->configureCompensation();
         Mail::fake();
         $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
         $region = Region::where('code', 'MAIN')->firstOrFail();
@@ -74,8 +75,16 @@ class AllLevelsRefundWithdrawalTest extends TestCase
         $this->phone++;
         $phone = '90'.str_pad((string) $this->phone, 8, '0', STR_PAD_LEFT);
 
-        $this->get(route('register', ['plan' => $this->plan->id] + ($sponsor ? ['sponsor' => $sponsor->member_code, 'side' => $side] : ['region' => 'MAIN'])))->assertOk();
-        $this->post(route('register.send'), ['name' => $name, 'phone' => $phone] + ($sponsor ? [] : ['region' => 'MAIN', 'plan_id' => $this->plan->id]));
+        // The very first person starts the region: the admin creates the root (nobody can become it by signing up).
+        if (! $sponsor) {
+            $root = $this->startRegion(Region::where('code', 'MAIN')->firstOrFail(), $name, $phone);
+            app(\App\Services\OrderService::class)->place($root, $this->plan);
+
+            return $root;
+        }
+
+        $this->get(route('register', ['plan' => $this->plan->id, 'sponsor' => $sponsor->member_code, 'side' => $side]))->assertOk();
+        $this->post(route('register.send'), ['name' => $name, 'phone' => $phone]);
         $this->assertEmpty(session('errors')?->all() ?? [], $name);
         $this->post(route('register.verify.submit'), ['otp' => session('debug_code')]);
 
@@ -141,7 +150,14 @@ class AllLevelsRefundWithdrawalTest extends TestCase
         $seenLevels = [];
         $bySource = [];
 
+        $rootRows = [];
         foreach ($entries as $e) {
+            // The root of the tree is paid outside the level window and says so; every other line is a normal level line.
+            if (str_starts_with($e->description, 'Root matching')) {
+                $rootRows[] = $e;
+
+                continue;
+            }
             $this->assertMatchesRegularExpression('/Level (\d+)\) from (\S+)/', $e->description);
             preg_match('/Level (\d+)\) from (\S+)/', $e->description, $m);
             $level = (int) $m[1];
@@ -157,7 +173,10 @@ class AllLevelsRefundWithdrawalTest extends TestCase
             $seenLevels[$level] = true;
             $bySource[$e->source_member_id][$level] = (float) $e->amount;
         }
-        $this->assertSame([1, 2, 3, 4, 5, 6, 7], array_keys($seenLevels) === [1, 2, 3, 4, 5, 6, 7] ? [1, 2, 3, 4, 5, 6, 7] : collect($seenLevels)->keys()->sort()->values()->all(), 'All seven levels were paid');
+        // Level 7 is paid to the end of the line on a shallower match (where the root is inside the window) and to the
+        // root alone on the deepest match.
+        $this->assertSame([1, 2, 3, 4, 5, 6, 7], collect($seenLevels)->keys()->sort()->values()->all(), 'All seven levels were paid');
+        $this->assertNotEmpty($rootRows, 'The root took the seventh slot on the deepest match');
 
         // Within one source the amounts keep the proportions of the rates (the same scaling applies to all of them).
         foreach ($bySource as $source => $levels) {
@@ -169,10 +188,19 @@ class AllLevelsRefundWithdrawalTest extends TestCase
             }
         }
 
-        // The very top member is never paid from the deepest match: chain 8 has no children, so nothing flows from there,
-        // and chain 7's match reaches only up to level 7 (chain 1), never chain 0.
-        $this->assertSame(0, $this->ledger('matching', $this->chain[0])->where('description', 'like', '%from '.$this->chain[7]->member_code)->count());
-        $this->assertGreaterThan(0, $this->ledger('matching', $this->chain[1])->where('description', 'like', 'Matching cascade (Level 7) from '.$this->chain[7]->member_code)->count());
+        // Chain 7's match reaches level 6 at chain 2; the seventh slot would be chain 1, but the root (chain 0) is
+        // never outside the window, so it takes that slot: chain 1 gets nothing from this match...
+        $this->assertSame(0, $this->ledger('matching', $this->chain[1])->where('description', 'like', '%from '.$this->chain[7]->member_code)->count());
+
+        // ...and the root is paid from that deepest match once, as a root payment at the seventh level's rate
+        // (4% against level 1's 10%), and from no match inside the window twice.
+        $fromDeepest = $this->ledger('matching', $this->chain[0])->where('description', 'like', '%from '.$this->chain[7]->member_code)->get();
+        $this->assertCount(1, $fromDeepest);
+        $this->assertStringStartsWith('Root matching (level 7', $fromDeepest->first()->description);
+        $this->assertEqualsWithDelta($bySource[$this->chain[7]->id][1] * $pct[7] / $pct[1], (float) $fromDeepest->first()->amount, 0.02);
+        foreach ($rootRows as $row) {
+            $this->assertSame($this->chain[0]->id, $row->member_id, 'Only the root is ever paid outside the window');
+        }
     }
 
     public function test_the_level_report_adds_up_to_what_was_posted_and_total_payouts_stay_inside_the_pool(): void
@@ -214,7 +242,8 @@ class AllLevelsRefundWithdrawalTest extends TestCase
         $this->assertSame('cancelled', $order->fresh()->status);
         $this->assertSame('inactive', $d3->fresh()->status);
         $this->assertCount(1, CreditNote::all());
-        $this->actingAs($this->chain[3]->fresh(), 'member')->get(route('member.team.index'))->assertOk()->assertDontSee('Direct D3');
+        // A refunded person is no longer active: their sponsor still sees them, labelled "Not active".
+        $this->actingAs($this->chain[3]->fresh(), 'member')->get(route('member.team.index'))->assertOk()->assertSee('Direct D3')->assertSee('Not active');
 
         $this->cycle();
 

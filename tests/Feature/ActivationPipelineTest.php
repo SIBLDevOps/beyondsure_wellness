@@ -99,13 +99,16 @@ class ActivationPipelineTest extends TestCase
             ->assertDontSee('Hidden Plan')->assertDontSee('Gujarat Plan');
     }
 
-    public function test_a_plan_is_required_when_the_region_has_plans(): void
+    public function test_a_plan_is_optional_so_a_link_without_a_product_still_registers(): void
     {
-        $this->post(route('register.send'), ['name' => 'X', 'phone' => '9811100001', 'region' => 'MAIN'])->assertSessionHasErrors('plan_id');
+        $this->startRegion();
+        // (This used to be required. The sponsor may now send a link with no product; the person chooses afterwards.)
+        $this->post(route('register.send'), ['name' => 'X', 'phone' => '9811100001', 'region' => 'MAIN'])->assertSessionHasNoErrors();
     }
 
     public function test_a_plan_from_another_region_or_an_inactive_plan_is_refused(): void
     {
+        $this->startRegion();
         $other = Region::create(['name' => 'Gujarat', 'code' => 'GJ']);
         $foreign = $this->makePlan('Gujarat Plan', 700, $other);
         $off = $this->makePlan('Switched Off', 500, null, false);
@@ -118,6 +121,7 @@ class ActivationPipelineTest extends TestCase
 
     public function test_a_region_with_no_plans_still_lets_people_register_without_one(): void
     {
+        $this->startRegion();
         Plan::query()->delete();
 
         $this->post(route('register.send'), ['name' => 'X', 'phone' => '9811100003', 'region' => 'MAIN'])->assertSessionHasNoErrors();
@@ -125,6 +129,7 @@ class ActivationPipelineTest extends TestCase
 
     public function test_after_registering_the_member_lands_on_the_payment_page_for_the_chosen_plan(): void
     {
+        $this->startRegion();
         $this->register(['phone' => '9811100004', 'region' => 'MAIN', 'plan_id' => $this->plan->id]);
 
         $member = Member::where('phone', '9811100004')->firstOrFail();
@@ -274,14 +279,17 @@ class ActivationPipelineTest extends TestCase
 
     // ------------------------------------------------------------------------------------- Phase B: downline visibility
 
-    public function test_an_unpaid_invitee_is_not_in_the_sponsors_tree_until_the_payment_succeeds(): void
+    public function test_an_unpaid_invitee_shows_in_the_tree_labelled_not_active_and_the_admin_can_hide_them(): void
     {
+        // The rule changed: unpaid people now show in the downline (labelled), and hiding them is the admin's choice.
         $sponsor = $this->member('SP1', null, 'active');
         $guest = $this->member('GUEST1', $sponsor);
 
-        $tree = app(NetworkService::class)->buildTree($sponsor, 4, activeOnly: true);
-        $this->assertNull($tree['left'], 'Unpaid invitee is hidden');
+        $this->actingAs($sponsor, 'member')->get(route('member.downline.index'))->assertOk()->assertSee('Name GUEST1')->assertSee('Not active');
 
+        \App\Models\Setting::set('show_inactive_in_downline', 0);
+        $tree = app(NetworkService::class)->buildTree($sponsor, 4, activeOnly: true);
+        $this->assertNull($tree['left'], 'With the switch off, an unpaid invitee is hidden');
         $this->actingAs($sponsor, 'member')->get(route('member.downline.index'))->assertOk()->assertDontSee('Name GUEST1');
 
         $this->pay($guest);
@@ -313,15 +321,21 @@ class ActivationPipelineTest extends TestCase
         $this->assertSame($below->id, $tree['left']['left']['member']->id);
     }
 
-    public function test_the_team_page_lists_only_paid_directs_and_levels_count_only_paid_people(): void
+    public function test_the_team_page_lists_unpaid_directs_labelled_and_the_admin_can_limit_it_to_paid_people(): void
     {
         $sponsor = $this->member('SP4', null, 'active');
         $paid = $this->member('PAID1', $sponsor, 'inactive', null, 'left');
         $this->pay($paid);
         $this->member('WAIT1', $sponsor, 'inactive', null, 'right');
 
-        $this->actingAs($sponsor, 'member')->get(route('member.team.index'))->assertOk()->assertSee('Name PAID1')->assertDontSee('Name WAIT1');
+        // Default: both are listed, the unpaid one labelled, and the level count includes both (one of them paid).
+        $this->actingAs($sponsor, 'member')->get(route('member.team.index'))->assertOk()->assertSee('Name PAID1')->assertSee('Name WAIT1')->assertSee('Not active');
+        $levels = app(NetworkService::class)->levelBreakdown($sponsor->fresh(), 3);
+        $this->assertSame([2, 1], [$levels[0]['count'], $levels[0]['paid_count']]);
 
+        // Admin switches "show non-active people" off: only the paid person counts and is listed.
+        \App\Models\Setting::set('show_inactive_in_downline', 0);
+        $this->actingAs($sponsor, 'member')->get(route('member.team.index'))->assertOk()->assertSee('Name PAID1')->assertDontSee('Name WAIT1');
         $levels = app(NetworkService::class)->levelBreakdown($sponsor->fresh(), 3, activeOnly: true);
         $this->assertSame(1, $levels[0]['count']);
     }

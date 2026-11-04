@@ -109,19 +109,22 @@ class RegistrationLegTest extends TestCase
             ->assertSessionHasNoErrors();
     }
 
-    public function test_the_first_member_of_an_empty_region_needs_no_sponsor_even_when_required(): void
+    public function test_nobody_is_exempt_from_the_sponsor_rule_and_an_unstarted_region_takes_no_sign_ups(): void
     {
+        // (This used to let the first person into an empty region without a sponsor. Now the admin starts a region.)
         Setting::set('require_sponsor', 1);
 
-        $this->post(route('register.send'), ['name' => 'Founder', 'phone' => '9876543214'])
-            ->assertSessionHasNoErrors();
+        $this->post(route('register.send'), ['name' => 'Founder', 'phone' => '9876543214'])->assertSessionHasErrors('region');
+
+        $this->startRegion();
+        $this->post(route('register.send'), ['name' => 'Founder', 'phone' => '9876543214'])->assertSessionHasErrors('sponsor_code');
     }
 
-    public function test_the_empty_register_form_shows_the_sponsor_as_optional_but_a_region_with_people_requires_it(): void
+    public function test_an_unstarted_region_shows_a_notice_and_a_started_one_shows_the_sponsor_as_required(): void
     {
         Setting::set('require_sponsor', 1);
 
-        $this->get(route('register'))->assertOk()->assertDontSee('A sponsor code is required');
+        $this->get(route('register'))->assertOk()->assertSee('not been opened yet')->assertDontSee('A sponsor code is required');
 
         $this->member('BSSPON009');
         $this->get(route('register'))->assertOk()->assertSee('A sponsor code is required');

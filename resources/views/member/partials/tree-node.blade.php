@@ -4,7 +4,8 @@
 
 @if ($node)
     <li class="genealogy-branch">
-        <div class="genealogy-node {{ $node['level'] === 1 ? 'genealogy-node-root' : '' }} {{ $node['active_this_month'] ? 'is-active-month' : 'is-inactive-month' }}">
+        @php $unpaid = $node['member']->status !== 'active'; @endphp
+        <div class="genealogy-node {{ $node['level'] === 1 ? 'genealogy-node-root' : '' }} {{ $node['active_this_month'] ? 'is-active-month' : 'is-inactive-month' }} {{ $unpaid ? 'is-unpaid' : '' }}">
             {{-- Top Position & Level Strip --}}
             <div class="d-flex align-items-center justify-content-between gap-1 mb-2 pb-1 border-bottom">
                 @if ($node['level'] === 1)
@@ -21,12 +22,17 @@
                     </span>
                 @endif
 
+                @if ($unpaid)
+                    {{-- Registered but the first payment is not approved yet: earns no sponsor or matching income until then (unless the admin allows it). --}}
+                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: .62rem;" title="Has not paid yet">Not active</span>
+                @else
                 <span class="d-inline-flex align-items-center gap-1" style="font-size: .65rem;">
                     <span class="rounded-circle {{ $node['active_this_month'] ? 'bg-success' : 'bg-secondary' }}" style="width:7px;height:7px;"></span>
                     <span class="{{ $node['active_this_month'] ? 'text-success fw-semibold' : 'text-secondary' }}">
                         {{ $node['active_this_month'] ? 'Active' : 'Inactive' }}
                     </span>
                 </span>
+                @endif
             </div>
 
             {{-- Member Identity --}}

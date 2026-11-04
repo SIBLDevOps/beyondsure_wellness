@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Member;
+use App\Models\Region;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class MemberService
@@ -14,6 +16,37 @@ class MemberService
         } while (Member::where('member_code', $code)->exists());
 
         return $code;
+    }
+
+    /**
+     * Starts a region: creates the member who is the top of its tree (no sponsor, no placement parent). Only the admin
+     * does this. The region row is locked while checking, so two clicks, or two admins, can never make two roots.
+     *
+     * @throws \DomainException if the region already has a root, or the mobile number already belongs to someone
+     */
+    public function createRoot(Region $region, string $name, string $phone, ?string $email): Member
+    {
+        return DB::transaction(function () use ($region, $name, $phone, $email) {
+            $locked = Region::withoutGlobalScopes()->whereKey($region->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->root()) {
+                throw new \DomainException("The {$locked->name} region already has a root.");
+            }
+
+            if ($existing = Member::where('phone', $phone)->first()) {
+                $where = $existing->region?->name ?? 'another region';
+                throw new \DomainException("That mobile number already belongs to a member in the {$where} region. A mobile number can belong to only one region.");
+            }
+
+            return Member::create([
+                'region_id' => $locked->id,
+                'member_code' => $this->generateMemberCode(),
+                'name' => $name,
+                'phone' => $phone,
+                'email' => $email ?: null,
+                'status' => 'inactive',
+            ]);
+        });
     }
 
     /**

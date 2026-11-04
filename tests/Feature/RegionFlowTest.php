@@ -32,6 +32,7 @@ class RegionFlowTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->configureCompensation();
 
         $this->admin = User::create(['name' => 'Admin', 'email' => 'admin@t.com', 'password' => 'secret123', 'role' => 'admin', 'is_active' => true]);
         foreach (['self_pct' => 10, 'sponsor_pct' => 20, 'rank_pool_pct' => 1, 'circuit_breaker_pct' => 50, 'match_cap_per_cycle' => 10000000, 'match_cap_per_week' => 10000000] as $k => $v) {
@@ -65,6 +66,14 @@ class RegionFlowTest extends TestCase
         $this->app['auth']->guard('member')->logout();
         $this->app['auth']->guard('web')->logout();
         $this->flushSession();
+
+        // The first person of a region (no sponsor) starts it: the admin creates the root, then it buys its plan.
+        if (empty($fields['sponsor_code'])) {
+            $root = $this->startRegion(Region::where('code', $fields['region'])->firstOrFail(), 'Person '.$fields['phone'], $fields['phone']);
+            app(\App\Services\OrderService::class)->place($root, Plan::findOrFail($fields['plan_id']));
+
+            return $root;
+        }
 
         $this->post(route('register.send'), $fields + ['name' => 'Person '.$fields['phone']]);
         $this->assertEmpty(session('errors')?->all() ?? [], 'Registration refused: '.json_encode(session('errors')?->all()));

@@ -204,6 +204,58 @@ class ReportController extends Controller
         return $this->reports->csv($csvRows, ['Member', 'Code', 'Mobile', 'Tree Depth', 'Self Income', 'Sponsor Income', 'Matching Income', 'Rank Income', 'Total Income', 'Entries']);
     }
 
+    /** The 7th level cascade: each matching event with the seven people paid for it, the root's slot marked. */
+    public function cascade(Request $request): View
+    {
+        ['from' => $from, 'to' => $to] = $this->reports->range($request->from, $request->to);
+
+        return view('admin.reports.cascade', [
+            'from' => $from,
+            'to' => $to,
+            'summary' => $this->reports->cascadeSummary($from, $to),
+            'events' => $this->reports->cascadeEvents($from, $to),
+        ]);
+    }
+
+    public function cascadeCsv(Request $request): StreamedResponse
+    {
+        ['from' => $from, 'to' => $to] = $this->reports->range($request->from, $request->to);
+
+        $rows = $this->reports->cascadeEvents($from, $to, null)->map(function ($e) {
+            $row = [$e['date']?->format('Y-m-d H:i'), $e['cycle'] ? $e['cycle']->period_start->format('Y-m-d').' to '.$e['cycle']->period_end->format('Y-m-d') : '', $e['source']->name, $e['source']->member_code];
+            foreach ($e['slots'] as $slot) {
+                array_push($row, $slot['member']->name ?? '', $slot['member']->member_code ?? '', $slot ? number_format($slot['amount'], 2, '.', '') : '');
+            }
+            $root = collect($e['slots'])->filter(fn ($s) => $s && $s['root'])->keys()->first();
+            $row[] = $root ? "Level {$root}" : '';
+            $row[] = number_format($e['total'], 2, '.', '');
+
+            return $row;
+        });
+
+        $headers = ['Date', 'Cycle', 'Matched member', 'Matched member code'];
+        for ($i = 1; $i <= ReportService::CASCADE_SLOTS; $i++) {
+            array_push($headers, "Level {$i} member", "Level {$i} code", "Level {$i} amount");
+        }
+        array_push($headers, 'Root slot', 'Total paid');
+
+        return $this->reports->csv($rows, $headers);
+    }
+
+    /** A print layout of the same report (landscape, no menus): the browser's Save as PDF turns it into a PDF file. */
+    public function cascadePdf(Request $request): View
+    {
+        ['from' => $from, 'to' => $to] = $this->reports->range($request->from, $request->to);
+
+        return view('admin.reports.cascade-pdf', [
+            'from' => $from,
+            'to' => $to,
+            'summary' => $this->reports->cascadeSummary($from, $to),
+            'events' => $this->reports->cascadeEvents($from, $to, null),
+            'region' => $request->integer('region') ? \App\Models\Region::find($request->integer('region')) : null,
+        ]);
+    }
+
     public function pending(): View
     {
         $data = $this->reports->pendingAndCash();

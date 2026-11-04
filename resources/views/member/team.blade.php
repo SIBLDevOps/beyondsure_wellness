@@ -90,8 +90,8 @@
                                 @endif
                             </td>
                             <td>
-                                <span class="badge rounded-pill {{ $d->status === 'active' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }} text-capitalize">
-                                    {{ $d->status }}
+                                <span class="badge rounded-pill {{ $d->status === 'active' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis' }}">
+                                    {{ $d->status === 'active' ? 'Active' : 'Not active' }}
                                 </span>
                             </td>
                             <td>

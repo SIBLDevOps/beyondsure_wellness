@@ -47,6 +47,7 @@ class FullNetworkFlowTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->configureCompensation();
         Mail::fake();
         // Seventeen people join from one address within a minute here, which the real sign-up rate limit would stop.
         $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
@@ -75,9 +76,17 @@ class FullNetworkFlowTest extends TestCase
         $this->phone++;
         $phone = '90'.str_pad((string) $this->phone, 8, '0', STR_PAD_LEFT);
 
-        $query = ['plan' => $this->plan->id] + ($sponsor ? ['sponsor' => $sponsor->member_code, 'side' => $side] : ['region' => 'MAIN']);
+        // The very first person starts the region: the admin creates the root (nobody can become it by signing up).
+        if (! $sponsor) {
+            $root = $this->startRegion($this->region, $name, $phone, strtolower(str_replace(' ', '.', $name)).'@example.com');
+            app(\App\Services\OrderService::class)->place($root, $this->plan);
+
+            return $root;
+        }
+
+        $query = ['plan' => $this->plan->id] + ['sponsor' => $sponsor->member_code, 'side' => $side];
         $this->get(route('register', $query))->assertOk();
-        $this->post(route('register.send'), ['name' => $name, 'phone' => $phone, 'email' => strtolower(str_replace(' ', '.', $name)).'@example.com'] + ($sponsor ? [] : ['region' => 'MAIN', 'plan_id' => $this->plan->id]));
+        $this->post(route('register.send'), ['name' => $name, 'phone' => $phone, 'email' => strtolower(str_replace(' ', '.', $name)).'@example.com']);
         $this->assertEmpty(session('errors')?->all() ?? [], "{$name}: ".json_encode(session('errors')?->all()));
         $res = $this->post(route('register.verify.submit'), ['otp' => session('debug_code')]);
 
@@ -124,7 +133,7 @@ class FullNetworkFlowTest extends TestCase
 
     // ------------------------------------------------------------------------------------------ before anyone pays
 
-    public function test_a_person_who_registers_but_has_not_paid_is_not_downline_yet_and_cannot_use_the_portal(): void
+    public function test_a_person_who_registers_but_has_not_paid_is_shown_as_not_active_and_cannot_use_the_portal(): void
     {
         $root = $this->join('Root Ravi', null, null);
         $this->pay($root);
@@ -137,13 +146,14 @@ class FullNetworkFlowTest extends TestCase
         $this->assertSame('left', $guest->position);
         $this->assertSame($this->plan->id, $guest->interested_plan_id);
 
-        // Not in the sponsor's team, tree or counts...
+        // In the sponsor's team and tree, clearly labelled "Not active", and counted (one person, none paid)...
         $net = app(NetworkService::class);
-        $this->assertSame([], $net->levelBreakdown($root, 7, true));
-        $this->actingAs($root, 'member')->get(route('member.team.index'))->assertOk()->assertDontSee('Guest Gina');
-        $this->actingAs($root, 'member')->get(route('member.downline.index'))->assertOk()->assertDontSee('Guest Gina');
-        // ...but waiting in the pipeline, for the sponsor and for admin.
-        $this->actingAs($root, 'member')->get(route('member.pending.index'))->assertOk()->assertSee('Guest Gina')->assertSee('Order placed');
+        $levels = $net->levelBreakdown($root, 7);
+        $this->assertSame([1, 0], [$levels[0]['count'], $levels[0]['paid_count']]);
+        $this->actingAs($root, 'member')->get(route('member.team.index'))->assertOk()->assertSee('Guest Gina')->assertSee('Not active');
+        $this->actingAs($root, 'member')->get(route('member.downline.index'))->assertOk()->assertSee('Guest Gina')->assertSee('Not active');
+        // ...and waiting in the pipeline, with their level and leg, for the sponsor and for admin.
+        $this->actingAs($root, 'member')->get(route('member.pending.index'))->assertOk()->assertSee('Guest Gina')->assertSee('Order placed')->assertSee('Left leg')->assertSee('Level 1');
         $this->actingAs($this->admin, 'web')->get(route('admin.activation.index'))->assertOk()->assertSee('Guest Gina');
         $this->actingAs($this->admin, 'web')->get(route('admin.members.index'))->assertOk()->assertSee('Guest Gina');   // admin sees everyone
 
@@ -153,9 +163,9 @@ class FullNetworkFlowTest extends TestCase
         }
         $this->actingAs($guest, 'member')->get(route('member.plans.index'))->assertOk()->assertSee('Essential');
 
-        // After paying they join the team everywhere.
+        // After paying they are active everywhere and the label goes.
         $this->pay($guest);
-        $this->assertCount(1, $net->levelBreakdown($root->fresh(), 7, true));
+        $this->assertSame([1, 1], [$net->levelBreakdown($root->fresh(), 7)[0]['count'], $net->levelBreakdown($root->fresh(), 7)[0]['paid_count']]);
         $this->actingAs($root->fresh(), 'member')->get(route('member.team.index'))->assertOk()->assertSee('Guest Gina');
         $this->actingAs($root->fresh(), 'member')->get(route('member.pending.index'))->assertOk()->assertDontSee('Guest Gina');
         $this->actingAs($guest->fresh(), 'member')->get(route('member.dashboard'))->assertOk();
@@ -211,7 +221,7 @@ class FullNetworkFlowTest extends TestCase
         // Emails: everyone was welcomed and confirmed; each sponsor was told about every person who joined and became active.
         $sent = Mail::sent(BrandedMail::class);
         $countFor = fn (string $part) => $sent->filter(fn ($m) => str_contains($m->mailSubject, $part))->count();
-        $this->assertSame($total, $countFor('Welcome'));
+        $this->assertSame($total - 1, $countFor('Welcome'), 'Everyone who signs up is welcomed; the root is created by the admin instead');
         $this->assertSame($total, $countFor('Payment confirmed'));
         $this->assertSame($total, $countFor('We have your payment'));
         $this->assertSame($total - 1, $countFor('joined your team'), 'Everyone except the root has a sponsor to tell');

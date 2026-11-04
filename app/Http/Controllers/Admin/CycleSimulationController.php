@@ -39,13 +39,26 @@ class CycleSimulationController extends Controller
     {
         $this->guard($request);
 
-        return view('admin.cycles.simulate', ['rules' => $this->rules(), 'result' => null]);
+        return $this->withSettingsNotice(view('admin.cycles.simulate', ['rules' => $this->rules(), 'result' => null]));
     }
 
     public function run(Request $request, CycleSimulator $simulator): View
     {
         $this->guard($request);
 
+        // A simulation uses the real rules, so it needs the same complete settings a real cycle does.
+        if (\App\Support\CompensationSettings::problems() !== []) {
+            return $this->withSettingsNotice(view('admin.cycles.simulate', ['rules' => $this->rules(), 'result' => null]));
+        }
+
         return view('admin.cycles.simulate', ['rules' => $this->rules(), 'result' => $simulator->run()]);
+    }
+
+    /** Says what is missing (the admin layout prints it at the top) instead of showing rules that are only defaults. */
+    private function withSettingsNotice(View $view): View
+    {
+        $problems = \App\Support\CompensationSettings::problems();
+
+        return $problems === [] ? $view : $view->withErrors(['cycle' => 'Settings are not complete: '.implode('; ', $problems).'. Save them on the Settings page first.']);
     }
 }

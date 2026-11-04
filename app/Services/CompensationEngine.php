@@ -64,6 +64,19 @@ class CompensationEngine
         $this->weeklyCap = (float) Setting::get('match_cap_per_week', 150000);
         $this->breakerPct = (float) Setting::get('circuit_breaker_pct', 60) / 100;
         $this->eligibilityMinVolumes = Setting::getEligibilityMinVolumes();
+        // Who has not paid yet earns sponsor and matching income only if the admin switched that on.
+        $this->inactiveEarnsSponsor = \App\Support\CompensationSettings::inactiveEarnsSponsor();
+        $this->inactiveEarnsMatching = \App\Support\CompensationSettings::inactiveEarnsMatching();
+    }
+
+    private bool $inactiveEarnsSponsor = false;
+
+    private bool $inactiveEarnsMatching = false;
+
+    /** Someone who has never paid has status "inactive". Their share is simply not paid: the company keeps it. */
+    private function mayEarn(?Member $member, bool $inactiveAllowed): bool
+    {
+        return $member !== null && ($member->status === 'active' || $inactiveAllowed);
     }
 
     /**
@@ -119,7 +132,7 @@ class CompensationEngine
             $paid += $selfAmt;
         }
 
-        if ($order->member->sponsor_id) {
+        if ($order->member->sponsor_id && $this->mayEarn($order->member->sponsor, $this->inactiveEarnsSponsor)) {
             $sponsorAmt = round($bv * $this->sponsorPct, 2);
             if ($sponsorAmt > 0) {
                 LedgerEntry::create([
@@ -192,14 +205,22 @@ class CompensationEngine
                 continue;
             }
 
-            $payees = $this->cascadePayees($node);
+            // The matched member and the people above them inside the level window; when the window does not reach the
+            // root of the tree, the root takes the window's last slot (the root is never outside it).
+            $payees = $this->withRoot($node, $this->cascadePayees($node));
 
             $gross = [];
             $grossTotal = 0.0;
             foreach ($payees as $item) {
+                // A member who has not paid yet gets no matching income (unless allowed); the others above are unaffected.
+                if (! $this->mayEarn($item['member'], $this->inactiveEarnsMatching)) {
+                    continue;
+                }
+
+                $isRoot = $item['root'] ?? false;
                 $pct = isset($this->levelPcts[$item['level']]) ? ($this->levelPcts[$item['level']] / 100) : $this->matchingPct;
                 $amt = round($newlyMatched * $pct, 2);
-                $gross[] = ['member' => $item['member'], 'level' => $item['level'], 'amount' => $amt];
+                $gross[] = ['member' => $item['member'], 'level' => $item['level'], 'amount' => $amt, 'root' => $isRoot];
                 $grossTotal += $amt;
             }
 
@@ -220,6 +241,7 @@ class CompensationEngine
                         'source' => $node,
                         'gross' => $scaledAmt,
                         'level' => $g['level'],
+                        'root' => $g['root'],
                     ];
                     $grossTotalAcrossNetwork += $scaledAmt;
                 }
@@ -241,7 +263,7 @@ class CompensationEngine
             $finalAmt = round($p['gross'] * $networkScale, 2);
 
             if ($finalAmt > 0) {
-                $totalPaid += $this->payMatching($p['payee'], $p['source'], $finalAmt, $p['level'], $cycle, $isoYear, $isoWeek);
+                $totalPaid += $this->payMatching($p['payee'], $p['source'], $finalAmt, $p['level'], $cycle, $isoYear, $isoWeek, $p['root']);
             }
         }
 
@@ -285,8 +307,45 @@ class CompensationEngine
         return $payees;
     }
 
+    /**
+     * Keeps the root of the matched member's tree inside the level window. When the window stops short of the root,
+     * the root takes the LAST slot (so the number of people paid never changes) and is paid that level's normal rate;
+     * the people nearest the event keep their own slots. The root is the first id on the member's placement path. A
+     * root already inside the window is left where it is, so nobody is paid twice. A window of one slot is never
+     * given to the root (it belongs to the matched member). If the root cannot be found (broken data) nothing is
+     * invented.
+     *
+     * @param  array<int, array{member: Member, level: int}>  $payees
+     * @return array<int, array{member: Member, level: int, root?: bool}>
+     */
+    private function withRoot(Member $node, array $payees): array
+    {
+        if (! \App\Support\CompensationSettings::rootAlwaysPaid() || ! $node->placement_id || ! $node->path || count($payees) < 2) {
+            return $payees;
+        }
+
+        $ids = array_values(array_filter(explode('.', (string) $node->path), fn ($v) => $v !== ''));
+        $rootId = (int) ($ids[0] ?? 0);
+
+        if ($rootId < 1 || collect($payees)->contains(fn ($p) => $p['member']->id === $rootId)) {
+            return $payees;
+        }
+
+        $root = Member::find($rootId);
+
+        // Only a member who really is the top of this tree (no placement parent) counts as the root.
+        if (! $root || $root->placement_id !== null) {
+            return $payees;
+        }
+
+        $lastKey = array_key_last($payees);
+        $payees[$lastKey] = ['member' => $root, 'level' => $payees[$lastKey]['level'], 'root' => true];
+
+        return $payees;
+    }
+
     /** $grossAmt is this payee's share after the v2 circuit breaker has already been applied. */
-    private function payMatching(Member $payee, Member $sourceNode, float $grossAmt, int $level, Cycle $cycle, int $isoYear, int $isoWeek): float
+    private function payMatching(Member $payee, Member $sourceNode, float $grossAmt, int $level, Cycle $cycle, int $isoYear, int $isoWeek, bool $isRoot = false): float
     {
         $monthPaid = (float) LedgerEntry::where('member_id', $payee->id)
             ->where('type', 'matching')
@@ -315,7 +374,9 @@ class CompensationEngine
             'cycle_id' => $cycle->id,
             'type' => 'matching',
             'amount' => $payAmt,
-            'description' => "Matching cascade (Level {$level}) from {$sourceNode->member_code}",
+            'description' => $isRoot
+                ? "Root matching (level {$level}, always in the window) from {$sourceNode->member_code}"
+                : "Matching cascade (Level {$level}) from {$sourceNode->member_code}",
         ]);
 
         $weekly->increment('matched_total', $payAmt);

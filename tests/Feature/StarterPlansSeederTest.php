@@ -49,6 +49,7 @@ class StarterPlansSeederTest extends TestCase
 
     public function test_the_register_page_then_asks_which_plan(): void
     {
+        $this->startRegion();
         $this->seed(StarterPlansSeeder::class);
 
         $this->get(route('register'))->assertOk()

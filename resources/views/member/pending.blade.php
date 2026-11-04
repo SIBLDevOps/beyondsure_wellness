@@ -42,6 +42,17 @@
                                 <span class="badge bg-{{ $tone }}-subtle text-{{ $tone }}-emphasis border border-{{ $tone }}-subtle">{{ $label }}</span>
                             </div>
 
+                            {{-- Where this person sits in your tree: which level below you and which of your two legs --}}
+                            @if ($p->level)
+                                <div class="d-flex flex-wrap align-items-center gap-2 mt-2 small">
+                                    <span class="badge {{ $p->leg === 'left' ? 'bg-info-subtle text-info-emphasis border border-info-subtle' : 'bg-success-subtle text-success border border-success-subtle' }}" title="Placed in your {{ $p->leg }} leg">
+                                        <strong>{{ $p->leg === 'left' ? 'L' : 'R' }}</strong> &middot; {{ $p->leg === 'left' ? 'Left leg' : 'Right leg' }}
+                                    </span>
+                                    <span class="badge bg-light text-secondary border">Level {{ $p->level }}</span>
+                                    <span class="text-secondary">Placed under {{ $p->placedUnder ?? '—' }}</span>
+                                </div>
+                            @endif
+
                             {{-- Progress: Registered, Order placed, Payment sent, Active --}}
                             <div class="d-flex align-items-center gap-1 my-3" aria-hidden="true">
                                 @foreach ([1, 2, 3, 4] as $i)

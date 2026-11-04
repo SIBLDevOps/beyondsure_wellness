@@ -100,6 +100,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('cycles/simulate', [\App\Http\Controllers\Admin\CycleSimulationController::class, 'run'])->name('cycles.simulate.run');
         Route::get('refunds', [\App\Http\Controllers\Admin\RefundController::class, 'index'])->name('refunds.index');
         Route::get('audit-log',[\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-log.index');
+        Route::get('audit-log/download', [\App\Http\Controllers\Admin\AuditLogController::class, 'csv'])->name('audit-log.csv');
         Route::get('account/two-factor', [\App\Http\Controllers\Admin\TwoFactorController::class, 'show'])->name('account.two-factor');
         Route::post('account/two-factor', [\App\Http\Controllers\Admin\TwoFactorController::class, 'enable'])->name('account.two-factor.enable');
         Route::post('account/two-factor/confirm', [\App\Http\Controllers\Admin\TwoFactorController::class, 'confirm'])->name('account.two-factor.confirm');
@@ -168,6 +169,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('guide', [GuideController::class, 'index'])->name('guide.index');
 
+        Route::post('regions/{region}/root', [RegionController::class, 'root'])->name('regions.root');
         Route::resource('regions', RegionController::class)->except('show', 'destroy')
             ->parameters(['regions' => 'region']);
 
@@ -196,6 +198,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('reports/levels', [ReportController::class, 'levels'])->name('reports.levels');
         Route::get('reports/levels/csv', [ReportController::class, 'levelsCsv'])->name('reports.levels.csv');
         Route::get('reports/levels/earners/csv', [ReportController::class, 'levelsEarnersCsv'])->name('reports.levels.earners.csv');
+
+        Route::get('reports/cascade', [ReportController::class, 'cascade'])->name('reports.cascade');
+        Route::get('reports/cascade/csv', [ReportController::class, 'cascadeCsv'])->name('reports.cascade.csv');
+        Route::get('reports/cascade/pdf', [ReportController::class, 'cascadePdf'])->name('reports.cascade.pdf');
 
         Route::get('reports/pending', [ReportController::class, 'pending'])->name('reports.pending');
         Route::get('reports/pending/csv', [ReportController::class, 'pendingCsv'])->name('reports.pending.csv');

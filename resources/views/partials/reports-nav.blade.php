@@ -18,7 +18,7 @@
 <nav class="rep-tabs" aria-label="Reports">
     @foreach ([
         'Sales' => ['admin.reports.overview' => 'Business overview', 'admin.reports.sales' => 'Sales & products', 'admin.reports.repurchase' => 'Repurchase'],
-        'Payouts' => ['admin.reports.payouts' => 'Payouts', 'admin.reports.levels' => 'Level-wise income'],
+        'Payouts' => ['admin.reports.payouts' => 'Payouts', 'admin.reports.levels' => 'Level-wise income', 'admin.reports.cascade' => '7th level cascade'],
         'Compliance' => ['admin.reports.pending' => 'Pending & cash', 'admin.reports.compliance' => 'Compliance / audit'],
         'Tax' => ['admin.reports.gst' => 'GST sales'],
     ] as $class => $tabs)

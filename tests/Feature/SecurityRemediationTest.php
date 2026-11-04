@@ -177,6 +177,7 @@ class SecurityRemediationTest extends TestCase
 
     public function test_F10_a_stale_cycle_object_cannot_be_approved_a_second_time(): void
     {
+        $this->configureCompensation();
         $admin = $this->admin();
         $m = $this->member('C1', '9811100010');
         $this->order($m, $this->plan(), 'paid');
@@ -383,6 +384,7 @@ class SecurityRemediationTest extends TestCase
 
     public function test_F15_a_region_limited_user_does_not_see_company_wide_cycle_totals(): void
     {
+        $this->configureCompensation();
         $gj = Region::create(['name' => 'Gujarat', 'code' => 'GJ']);
         $mh = Region::create(['name' => 'Maharashtra', 'code' => 'MH']);
         $this->order($this->member('GJ1', '9811100019', $gj), $this->plan(1000, true, $gj, 111), 'paid');

@@ -153,6 +153,7 @@
     .genealogy-node.is-active-month {
         border-top: 3px solid var(--brand-600, #059669);
     }
+    .genealogy-node.is-unpaid { border-style: dashed; border-color: var(--bs-warning-border-subtle, #ffe69c); }
     .genealogy-node.is-inactive-month {
         border-top: 3px solid #94a3b8;
     }
@@ -547,7 +548,9 @@
                                 </td>
                                 <td class="small text-secondary">{{ $item['parent_name'] ?? '—' }}</td>
                                 <td>
-                                    @if ($item['active_this_month'])
+                                    @if ($m->status !== 'active')
+                                        <span class="badge bg-warning-subtle text-warning-emphasis">Not active</span>
+                                    @elseif ($item['active_this_month'])
                                         <span class="badge bg-success-subtle text-success">Active</span>
                                     @else
                                         <span class="badge bg-secondary-subtle text-secondary">Inactive</span>

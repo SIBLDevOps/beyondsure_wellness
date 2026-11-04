@@ -29,6 +29,42 @@ class RegionController extends Controller
         return view('admin.regions.index', ['regions' => $regions]);
     }
 
+    /**
+     * Starts the region: creates the member at the top of its tree. This is the only way a root comes to exist, so a
+     * stranger can never take the seat that earns on every match in the region.
+     */
+    public function root(Request $request, Region $region, \App\Services\MemberService $members): RedirectResponse
+    {
+        if ($request->filled('phone')) {
+            $request->merge(['phone' => trim((string) $request->input('phone'))]);
+        }
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'phone' => ['required', 'string', 'regex:/^[6-9]\d{9}$/'],
+            'email' => ['nullable', 'email', 'max:255', 'unique:members,email'],
+        ], [
+            'name.required' => 'Enter the root member\'s full name.',
+            'phone.required' => 'Enter their mobile number.',
+            'phone.regex' => 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.',
+            'email.email' => 'Enter a valid email address.',
+            'email.unique' => 'That email address is already used by another member.',
+        ]);
+
+        try {
+            $root = $members->createRoot($region, $data['name'], $data['phone'], $data['email'] ?? null);
+        } catch (\DomainException $e) {
+            $field = str_contains($e->getMessage(), 'mobile') ? 'phone' : 'root';
+
+            return back()->withInput()->withErrors([$field => $e->getMessage()]);
+        }
+
+        // They are told by email if the admin gave an address; otherwise the admin tells them.
+        app(\App\Services\MemberMailer::class)->welcome($root);
+
+        return back()->with('status', "{$root->name} is now the root of the {$region->name} region. They sign in with their mobile number (OTP), choose a plan and activate. Everyone else joins through member invite links.");
+    }
+
     public function create(): View
     {
         return view('admin.regions.form', ['region' => new Region(['is_active' => true])]);

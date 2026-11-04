@@ -58,6 +58,8 @@ class TwoFactorChallengeController extends Controller
         }
 
         if (! $ok) {
+            AuditLog::record('admin.login.failed', $user->email.($field === 'recovery_code' ? ' (wrong recovery code)' : ' (wrong two-factor code)'), 'POST', '/admin/two-factor-challenge', [], $user, $request->ip(), null, 'failed');
+
             return back()->withErrors([$field => $field === 'code' ? 'That code is not right. Check your authenticator app and try again.' : 'That recovery code is not valid, or was already used.']);
         }
 

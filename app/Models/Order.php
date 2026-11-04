@@ -10,6 +10,14 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[\Illuminate\Database\Eloquent\Attributes\ScopedBy([\App\Models\Scopes\AdminRegionScope::class])]
 class Order extends Model
 {
+    use \App\Models\Concerns\Audited;
+
+    /** The fields whose changes by staff are written to the audit log. */
+    public function auditFields(): array
+    {
+        return ['status'];
+    }
+
     protected $fillable = [
         'order_code', 'member_id', 'plan_id', 'amount', 'taxable_amount', 'gst_amount', 'bv', 'status', 'is_repurchase', 'cycle_id',
         'billing_name', 'billing_email', 'billing_phone', 'billing_address', 'razorpay_order_id',

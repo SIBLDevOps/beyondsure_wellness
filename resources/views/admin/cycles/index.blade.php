@@ -70,6 +70,21 @@
             </div>
         </div>
         <div class="card-body">
+            @if (! empty($settingsProblems))
+                {{-- Money is never calculated on built-in defaults: the settings have to be saved first. --}}
+                <div class="alert alert-warning mb-0" role="alert">
+                    <div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i>Set up your compensation settings first</div>
+                    <div class="small mb-2">A cycle posts real income to members, so it cannot be created until the settings are complete:</div>
+                    <ul class="small mb-2">
+                        @foreach ($settingsProblems as $problem)<li>{{ $problem }}</li>@endforeach
+                    </ul>
+                    @if (auth()->user()->canAccessRoute('admin.settings.edit'))
+                        <a href="{{ route('admin.settings.edit') }}" class="btn btn-sm btn-warning"><i class="bi bi-gear me-1"></i>Open Settings and press Save</a>
+                    @else
+                        <div class="small">Ask the owner (Super Admin) to open Settings and save them.</div>
+                    @endif
+                </div>
+            @else
             <form method="POST" action="{{ route('admin.cycles.store') }}" class="row g-3 align-items-end">
                 @csrf
                 <div class="col-12 col-sm-5 col-md-4">
@@ -96,6 +111,7 @@
                     </button>
                 </div>
             </form>
+            @endif
         </div>
     </div>
 

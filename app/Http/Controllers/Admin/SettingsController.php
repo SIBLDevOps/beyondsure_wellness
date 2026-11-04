@@ -20,11 +20,21 @@ class SettingsController extends Controller
     ];
 
     public function edit(): View {
-        $defaults   = ['circuit_breaker_pct' => 60];
+        // A setting that was never saved shows the recommended starting value (the same one the engine would assume), not a
+        // zero: otherwise pressing Save on a fresh page would store zeros and switch the income off.
+        $defaults   = \App\Support\CompensationSettings::defaults() + ['matching_pct' => 10, 'cascade_depth' => 7];
         $values     = collect(self::KEYS)->mapWithKeys(fn ($k) => [$k => Setting::get($k, $defaults[$k] ?? 0)]);
         $levelPcts  = Setting::getLevelPercentages();
 
+        // Matching eligibility: the least new volume a layer must make in a cycle for its match to be paid (0 = no minimum).
+        $saved = Setting::getEligibilityMinVolumes();
+        $eligibility = [
+            'layers' => collect(range(1, 7))->mapWithKeys(fn ($i) => [$i => (float) ($saved[$i] ?? 0)])->all(),
+            'fallback' => (float) ($saved['fallback'] ?? 0),
+        ];
+
         return view('admin.settings.edit', [
+            'eligibility'    => $eligibility,
             'requireSponsor' => (bool) Setting::get('require_sponsor', 0),
             'values'         => $values,
             'levelPcts'      => $levelPcts,
@@ -155,11 +165,24 @@ class SettingsController extends Controller
         }
 
         Setting::setLevelPercentages($levels);
-        Setting::setEligibilityMinVolumes($data['eligibility'] ?? [], $data['eligibility_fallback'] ?? 0);
+        // The root's rule: only when the page sent that section (an unticked box means off).
+        if ($request->has('root_section')) {
+            Setting::set('root_matching_enabled', $request->boolean('root_matching_enabled') ? 1 : 0);
+        }
+
+        // Only when the form sent them: a save that leaves them out (an older page, a script) must not wipe what is stored.
+        if ($request->has('eligibility') || $request->has('eligibility_fallback')) {
+            Setting::setEligibilityMinVolumes($data['eligibility'] ?? [], $data['eligibility_fallback'] ?? 0);
+        }
 
         // A checkbox that's unticked isn't submitted at all, so read it explicitly rather than
         // through KEYS (which only saves fields that are present).
         Setting::set('require_sponsor', $request->boolean('require_sponsor') ? 1 : 0);
+
+        // Same for the three choices about members who have not paid yet: an unticked box means off.
+        foreach (['show_inactive_in_downline', 'inactive_earns_sponsor', 'inactive_earns_matching'] as $flag) {
+            Setting::set($flag, $request->boolean($flag) ? 1 : 0);
+        }
 
         $data['cascade_depth'] = count($levels);
         $data['matching_pct'] = $levels[0] ?? 10;

@@ -13,6 +13,14 @@ use Illuminate\Notifications\Notifiable;
 #[\Illuminate\Database\Eloquent\Attributes\ScopedBy([\App\Models\Scopes\AdminRegionScope::class])]
 class Member extends Authenticatable
 {
+    use \App\Models\Concerns\Audited;
+
+    /** The fields whose changes by staff are written to the audit log. */
+    public function auditFields(): array
+    {
+        return ['status', 'rank', 'region_id'];
+    }
+
     use HasFactory, Notifiable;
 
     protected $fillable = [

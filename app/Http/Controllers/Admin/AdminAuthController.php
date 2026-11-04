@@ -32,13 +32,14 @@ class AdminAuthController extends Controller
         $user = $provider->retrieveByCredentials(['email' => $credentials['email']]);
 
         if (! $user || ! $provider->validateCredentials($user, ['password' => $credentials['password']])) {
-            AuditLog::record('admin.login.failed', $credentials['email'], 'POST', '/admin/login', [], null, $request->ip());
+            // If the email belongs to a real account, the line says whose (a wrong password on a known account matters more).
+            AuditLog::record('admin.login.failed', $credentials['email'], 'POST', '/admin/login', [], $user instanceof \App\Models\User ? $user : null, $request->ip(), null, 'failed');
 
             return back()->withErrors(['email' => 'Invalid credentials.']);
         }
 
         if (! $user->isAdminStaff()) {
-            AuditLog::record('admin.login.failed', $credentials['email'].' (no admin access)', 'POST', '/admin/login', [], null, $request->ip());
+            AuditLog::record('admin.login.failed', $credentials['email'].' (no admin access)', 'POST', '/admin/login', [], null, $request->ip(), null, 'failed');
 
             return back()->withErrors(['email' => 'This account does not have admin access.']);
         }
@@ -59,6 +60,11 @@ class AdminAuthController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
+        // Written before signing out, while we still know who it is.
+        if ($user = $request->user('web')) {
+            AuditLog::record('admin.logout', $user->email, 'POST', '/admin/logout', [], $user, $request->ip());
+        }
+
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

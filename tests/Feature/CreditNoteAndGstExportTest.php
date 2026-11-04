@@ -37,6 +37,7 @@ class CreditNoteAndGstExportTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->configureCompensation();
         Mail::fake();
         Carbon::setTestNow('2026-10-15 11:00:00');
         $this->region = Region::where('code', 'MAIN')->firstOrFail();

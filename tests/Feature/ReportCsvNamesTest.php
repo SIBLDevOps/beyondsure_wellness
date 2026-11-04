@@ -55,6 +55,7 @@ class ReportCsvNamesTest extends TestCase
             'admin.reports.payouts.top-earners.csv' => 'acme-wellness-payouts-top-earners-20261101.csv',
             'admin.reports.levels.csv' => 'acme-wellness-payouts-level-income-20261101.csv',
             'admin.reports.levels.earners.csv' => 'acme-wellness-payouts-level-earners-20261101.csv',
+            'admin.reports.cascade.csv' => 'acme-wellness-payouts-cascade-7th-level-20261101.csv',
             'admin.reports.pending.csv' => 'acme-wellness-compliance-pending-cash-20261101.csv',
             'admin.reports.pending.withdrawals.csv' => 'acme-wellness-compliance-pending-withdrawals-20261101.csv',
             'admin.reports.pending.unsettled.csv' => 'acme-wellness-compliance-unsettled-orders-20261101.csv',

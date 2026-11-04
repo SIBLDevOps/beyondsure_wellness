@@ -7,6 +7,19 @@ use Illuminate\Support\Facades\Cache;
 
 class Setting extends Model
 {
+    use \App\Models\Concerns\Audited;
+
+    /** The fields whose changes by staff are written to the audit log. */
+    public function auditFields(): array
+    {
+        return ['value'];
+    }
+
+    public function auditSubject(): string
+    {
+        return 'Setting: '.$this->key;
+    }
+
     protected $fillable = ['key', 'value'];
 
     /**

@@ -9,8 +9,10 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Writes down every change a signed-in staff member makes in the admin area (anything but a page view), once it went
- * through. Only the names of the fields that were sent are kept, never their values.
+ * Writes down what a signed-in staff member did in the admin area, once it went through: every change (anything but a
+ * page view) and every download of a CSV or export. Only the names of the fields that were sent are kept, never their
+ * values. What those changes were, old value to new, is written by the models themselves (see AuditLog::modelChanged).
+ * Refused attempts are written by EnsureAdmin, which is where they are refused.
  */
 class AuditAdminActions
 {
@@ -18,13 +20,21 @@ class AuditAdminActions
     {
         $response = $next($request);
 
-        if (! in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true) && $response->getStatusCode() < 400 && $request->user('web')) {
+        if (! $request->user('web') || $response->getStatusCode() >= 400) {
+            return $response;
+        }
+
+        $name = (string) ($request->route()?->getName() ?? $request->path());
+        $isWrite = ! in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true);
+        $isDownload = $request->isMethod('GET') && (str_contains($name, '.csv') || str_contains($name, 'export'));
+
+        if ($isWrite || $isDownload) {
             $subject = collect($request->route()?->parameters() ?? [])
                 ->filter(fn ($p) => $p instanceof Model)
                 ->map(fn (Model $m) => class_basename($m).' #'.$m->getKey())->implode(', ');
 
             AuditLog::record(
-                (string) ($request->route()?->getName() ?? $request->path()),
+                $name,
                 $subject ?: null,
                 $request->method(),
                 '/'.ltrim($request->path(), '/'),

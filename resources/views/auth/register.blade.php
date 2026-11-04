@@ -6,6 +6,14 @@
     <h2 class="text-lg font-semibold text-slate-900 mb-1">Create your account</h2>
     <p class="text-xs text-slate-500 mb-4">Join our wellness &amp; partner community.</p>
 
+    @if ($regionClosed ?? false)
+        {{-- A region only opens when the admin has created its root, so there is nothing to sign up to yet. --}}
+        <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+            <div class="font-semibold mb-1">This region has not been opened yet</div>
+            Sign-ups open once the company has started the region. Please contact the company, or ask the person who invited you for their invite link.
+        </div>
+        @error('region') <p class="text-xs text-red-600 mt-2">{{ $message }}</p> @enderror
+    @else
     <form method="POST" action="{{ route('register.send') }}" class="space-y-4">
         @csrf
 
@@ -100,15 +108,15 @@
             </div>
         @elseif (($plans ?? collect())->isNotEmpty())
             <div>
-                <label for="plan_id" class="block text-sm font-medium text-slate-700">Which plan do you want to buy? <span class="text-rose-500">*</span></label>
-                <select id="plan_id" name="plan_id" required
+                <label for="plan_id" class="block text-sm font-medium text-slate-700">Which plan do you want to buy? <span class="text-slate-400">(optional)</span></label>
+                <select id="plan_id" name="plan_id"
                     class="mt-1 w-full rounded-lg border @error('plan_id') border-red-500 @else border-slate-300 @enderror px-3.5 py-2.5 text-sm bg-white">
-                    <option value="">Choose a plan</option>
+                    <option value="">Decide later — I will choose after I register</option>
                     @foreach ($plans as $p)
                         <option value="{{ $p->id }}" @selected((int) old('plan_id', $selectedPlan ?? 0) === $p->id)>{{ $p->name }} — ₹{{ number_format($p->totalPayable()) }} (incl. GST){{ ($regions ?? collect())->count() > 1 && ! ($region ?? null) ? ' · '.$p->region?->name : '' }}</option>
                     @endforeach
                 </select>
-                <p class="text-xs text-slate-500 mt-1">You go straight to payment after verifying your mobile number. You join your sponsor&rsquo;s team once your payment is approved.</p>
+                <p class="text-xs text-slate-500 mt-1">Pick a plan to go straight to payment after verifying your mobile number, or leave it and choose from the plans once you are in. You become an active member when your first payment is approved.</p>
                 @error('plan_id') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
             </div>
         @endif
@@ -118,6 +126,7 @@
             Send OTP
         </button>
     </form>
+    @endif
 
     <p class="text-sm text-slate-500 text-center mt-4">
         Already have an account?

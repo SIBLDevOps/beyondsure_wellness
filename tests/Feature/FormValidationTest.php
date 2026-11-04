@@ -24,6 +24,7 @@ class FormValidationTest extends TestCase
 
     public function test_registration_succeeds_with_valid_details(): void
     {
+        $this->startRegion();
         $response = $this->post(route('register.send'), [
             'name' => 'Valid User',
             'phone' => '9876543210',
