@@ -26,6 +26,7 @@ class ReportNames
         'admin.reports.payouts.top-earners.csv' => ['payouts', 'top-earners'],
         'admin.reports.levels.csv' => ['payouts', 'level-income'],
         'admin.reports.levels.earners.csv' => ['payouts', 'level-earners'],
+        'admin.reports.distribution.csv' => ['payouts', 'money-distribution'],
         'admin.reports.cascade.csv' => ['payouts', 'cascade-7th-level'],
         'admin.reports.pending.csv' => ['compliance', 'pending-cash'],
         'admin.reports.pending.withdrawals.csv' => ['compliance', 'pending-withdrawals'],

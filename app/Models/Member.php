@@ -29,6 +29,7 @@ class Member extends Authenticatable
         'email',
         'phone',
         'password',
+        'activated_at',
         'sponsor_id',
         'placement_id',
         'position',
@@ -49,12 +50,14 @@ class Member extends Authenticatable
 
     protected $hidden = [
         'password',
+        'activated_at',
         'remember_token',
     ];
 
     protected function casts(): array
     {
         return [
+            'activated_at' => 'datetime',
             'phone_verified_at' => 'datetime',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',

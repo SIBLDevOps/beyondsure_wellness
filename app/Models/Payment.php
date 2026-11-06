@@ -16,11 +16,11 @@ class Payment extends Model
         return ['status', 'method'];
     }
 
-    protected $fillable = ['order_id', 'method', 'reference', 'status', 'verified_by', 'verified_at'];
+    protected $fillable = ['order_id', 'method', 'reference', 'status', 'verified_by', 'verified_at', 'paid_at'];
 
     protected function casts(): array
     {
-        return ['verified_at' => 'datetime'];
+        return ['verified_at' => 'datetime', 'paid_at' => 'datetime'];
     }
 
     public function order(): BelongsTo

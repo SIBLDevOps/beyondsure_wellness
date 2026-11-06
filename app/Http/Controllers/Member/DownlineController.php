@@ -74,7 +74,32 @@ class DownlineController extends Controller
         $cascadeDepth = (int) Setting::get('cascade_depth', 7);
         $levels = $this->network->levelBreakdown($member, $depth, activeOnly: $this->hideUnpaid());
 
+        $report = $this->incomeReport($member, $levels);
+
+        // Every rupee, line by line: what it was, from whom, and the working. Filter by type; anything else means all.
+        $type = $request->query('type');
+        $type = (is_string($type) && in_array($type, ['self', 'sponsor', 'matching', 'rank'], true)) ? $type : null;
+        $entries = \App\Models\LedgerEntry::where('member_id', $member->id)->whereIn('type', ['self', 'sponsor', 'matching', 'rank'])
+            ->when($type, fn ($q) => $q->where('type', $type))
+            ->with('sourceMember:id,name,member_code', 'order:id,order_code,bv');
+        $statementTotal = (float) (clone $entries)->sum('amount');
+        $statement = (clone $entries)->latest('id')->paginate(15)->withQueryString()->through(fn ($e) => [
+            'date' => $e->created_at,
+            'type' => $e->type,
+            'from' => $e->sourceMember,
+            'amount' => (float) $e->amount,
+            'how' => $this->explainIncome($e->type, (string) $e->description, (float) $e->amount, $e->order?->bv, $e->order?->order_code, $e->sourceMember?->name, $e->source_member_id === $member->id),
+        ]);
+
+        foreach ($report['lost']['rows'] as $row) {
+            $row->how = $this->explainIncome($row->type, (string) $row->description, (float) $row->amount, $row->order?->bv, $row->order?->order_code, $row->sourceMember?->name, $row->source_member_id === $member->id);
+        }
+
         return view('member.levels', [
+            'statement' => $statement,
+            'statementType' => $type,
+            'statementTotal' => $statementTotal,
+            'report' => $report,
             'levels' => $levels,
             'depth' => $depth,
             'cascadeDepth' => $cascadeDepth,
@@ -87,6 +112,124 @@ class DownlineController extends Controller
         ]);
     }
 
+    /**
+     * The working behind one income line, in plain words with the real numbers. Self and sponsor income are a rate on
+     * the BV of an order. Matching income is the level's rate on the volume that matched; that volume is worked back
+     * from the amount paid (amount divided by the rate), because the rate and volume are not stored with the line.
+     */
+    private function explainIncome(string $type, string $description, float $amount, mixed $orderBv, ?string $orderCode, ?string $sourceName, bool $sourceIsMember): string
+    {
+        $n = fn (float $v) => number_format($v, $v == floor($v) ? 0 : 2);
+        $money = fn (float $v) => '₹'.number_format($v, 2);
+        $rates = Setting::getLevelPercentages();
+
+        switch ($type) {
+            case 'self':
+                $pct = (float) Setting::get('self_pct', 10);
+
+                return $orderBv !== null
+                    ? "{$pct}% of {$n((float) $orderBv)} BV on your own order {$orderCode} = {$money($amount)}"
+                    : "{$pct}% of the BV of your own order = {$money($amount)}";
+
+            case 'sponsor':
+                $pct = (float) Setting::get('sponsor_pct', 20);
+                $who = $sourceName ? " bought by {$sourceName}" : '';
+
+                return $orderBv !== null
+                    ? "{$pct}% of {$n((float) $orderBv)} BV on order {$orderCode}{$who}, a person you sponsored = {$money($amount)}"
+                    : "{$pct}% of the BV of an order bought by a person you sponsored = {$money($amount)}";
+
+            case 'matching':
+                preg_match('/level (\d+)/i', $description, $m);
+                $level = (int) ($m[1] ?? 0);
+                $pct = (float) ($rates[$level] ?? Setting::get('matching_pct', 10));
+                $matched = $pct > 0 ? round($amount / ($pct / 100), 2) : 0.0;
+                $root = str_starts_with($description, 'Root matching');
+                $where = $sourceIsMember ? 'on your own two legs' : ($sourceName ? "on {$sourceName}'s two legs" : 'below you');
+                $position = $root ? 'you hold the last slot as the root of the tree'
+                    : ($level === 1 ? 'you are the one whose legs matched' : 'you are '.($level - 1).' '.($level - 1 === 1 ? 'step' : 'steps').' above them');
+
+                return "{$pct}% (level {$level}) of {$n($matched)} BV matched {$where}, {$position} = {$money($amount)}";
+
+            case 'rank':
+                return "Your share of the rank pool = {$money($amount)}";
+        }
+
+        return $description;
+    }
+    /**
+     * Everything the member needs to understand their income in one place: what was earned (by type, adding up to the
+     * wallet), what was lost (income the company kept because they were not active at the time), and what is only
+     * waiting (volume on the stronger leg that has no match yet).
+     */
+    private function incomeReport(Member $member, array $levels): array
+    {
+        $ledger = \App\Models\LedgerEntry::where('member_id', $member->id);
+        $byType = (clone $ledger)->whereIn('type', ['self', 'sponsor', 'matching', 'rank'])->selectRaw('type, sum(amount) as s')->groupBy('type')->pluck('s', 'type');
+        $matching = (float) ($byType['matching'] ?? 0);
+        $ownMatching = (float) (clone $ledger)->where('type', 'matching')->where('source_member_id', $member->id)->sum('amount');
+        $earned = (float) $byType->sum();
+
+        $parts = [
+            'self' => (float) ($byType['self'] ?? 0),
+            'sponsor' => (float) ($byType['sponsor'] ?? 0),
+            'matching_team' => round($matching - $ownMatching, 2),
+            'matching_own' => $ownMatching,
+            'rank' => (float) ($byType['rank'] ?? 0),
+        ];
+
+        $lostRows = collect();
+        $lost = ['total' => 0.0, 'sponsor' => 0.0, 'matching' => 0.0, 'rows' => $lostRows];
+        if (\App\Models\LockedIncome::ready()) {
+            $all = \App\Models\LockedIncome::where('member_id', $member->id);
+            $lost['sponsor'] = (float) (clone $all)->where('type', 'sponsor')->sum('amount');
+            $lost['matching'] = (float) (clone $all)->where('type', 'matching')->sum('amount');
+            $lost['total'] = $lost['sponsor'] + $lost['matching'];
+            $lost['rows'] = (clone $all)->with('sourceMember:id,name,member_code', 'order:id,order_code,bv')->latest('id')->limit(25)->get();
+        }
+
+        $legs = $member->legTotal;
+        $left = (float) ($legs->left_bv ?? 0);
+        $right = (float) ($legs->right_bv ?? 0);
+        $level1 = (float) (\App\Models\Setting::getLevelPercentages()[1] ?? \App\Models\Setting::get('matching_pct', 10));
+        // Their own match waits while a member placed directly under them is not active: say who, and how much.
+        $blocked = collect();
+        $blockedAmount = 0.0;
+        if (\App\Support\BusinessDay::ownMatchReady() && $member->status === 'active') {
+            $pending = min($left, $right) - (float) ($legs->own_matched_bv ?? 0);
+            $heads = Member::where('placement_id', $member->id)->whereIn('position', ['left', 'right'])->get();
+            $inactive = $heads->where('status', '!=', 'active');
+            if ($pending > 0 && $inactive->isNotEmpty()) {
+                $blocked = $inactive->map(fn ($h) => ['name' => $h->name, 'side' => $h->position])->values();
+                $blockedAmount = round($pending * $level1 / 100, 2);
+            }
+        }
+
+        $waiting = [
+            'blocked' => $blocked->all(),
+            'blocked_amount' => $blockedAmount,
+            'bv' => abs($left - $right),
+            'strong_side' => $left > $right ? 'left' : ($right > $left ? 'right' : null),
+            'weak_side' => $left > $right ? 'right' : ($right > $left ? 'left' : null),
+            'left' => $left,
+            'right' => $right,
+            'matched' => (float) ($legs->matched_bv ?? 0),
+            'per_1000' => round(1000 * $level1 / 100, 2),
+        ];
+
+        return $parts + [
+            'earned' => $earned,
+            'other' => round($earned - array_sum($parts), 2),
+            'lost' => $lost,
+            'waiting' => $waiting,
+            'from_team_table' => (float) collect($levels)->sum('total_income'),
+            'rules' => [
+                'self' => (float) \App\Models\Setting::get('self_pct', 10),
+                'sponsor' => (float) \App\Models\Setting::get('sponsor_pct', 20),
+                'levels' => \App\Models\Setting::getLevelPercentages(),
+            ],
+        ];
+    }
     /**
      * The people this member invited who have not paid yet, each with the step they are at, the plan they chose and a
      * ready-made WhatsApp reminder. They join the team the moment their payment is approved.

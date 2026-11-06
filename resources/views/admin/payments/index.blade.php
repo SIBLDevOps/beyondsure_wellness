@@ -34,6 +34,7 @@
                         <th>Reference / UTR</th>
                         <th class="text-center" data-sort-key="text">Status</th>
                         <th>Submitted</th>
+                        <th>Payment date</th>
                         <th class="text-end pe-3">Verification Action</th>
                     </tr>
                 </thead>
@@ -72,12 +73,30 @@
                                 </span>
                             </td>
                             <td class="text-body-tertiary small">{{ $payment->created_at->format('d M Y H:i') }}</td>
+                            <td class="small">
+                                @if ($payment->status === 'verified')
+                                    <span class="fw-semibold">{{ \App\Support\BusinessDay::label($payment->paid_at ?? $payment->verified_at) }}</span>
+                                    @if (auth()->user()?->role === 'admin')
+                                        <form method="POST" action="{{ route('admin.payments.paid-at', $payment) }}" class="mt-1 d-flex gap-1">
+                                            @csrf @method('PUT')
+                                            <input type="datetime-local" name="paid_at" required value="{{ \App\Support\BusinessDay::forInput($payment->paid_at ?? $payment->verified_at) }}" max="{{ \App\Support\BusinessDay::forInput(now()) }}" class="form-control form-control-sm" style="min-width: 170px;" aria-label="Change payment date">
+                                            <button class="btn btn-sm btn-outline-secondary" title="Save the new date"><i class="bi bi-check2"></i></button>
+                                        </form>
+                                    @endif
+                                @else
+                                    <span class="text-body-tertiary">—</span>
+                                @endif
+                            </td>
                             <td class="text-end pe-3">
                                 @if ($payment->status === 'pending')
                                     <div class="d-inline-flex gap-1 justify-content-end">
-                                        <form method="POST" action="{{ route('admin.payments.verify', $payment) }}">
+                                        <form method="POST" action="{{ route('admin.payments.verify', $payment) }}" class="d-flex flex-column align-items-end gap-1">
                                             @csrf @method('PUT')
-                                            <button class="btn btn-sm btn-success"><i class="bi bi-check-lg me-1"></i>Verify</button>
+                                            <label class="small text-secondary mb-0" for="paid_at_{{ $payment->id }}">Payment date &amp; time <span class="text-body-tertiary">(India time, as on the bank / UPI statement)</span></label>
+                                            <div class="d-flex gap-1">
+                                                <input id="paid_at_{{ $payment->id }}" type="datetime-local" name="paid_at" value="{{ \App\Support\BusinessDay::forInput($payment->created_at) }}" max="{{ \App\Support\BusinessDay::forInput(now()) }}" class="form-control form-control-sm" style="min-width: 170px;">
+                                                <button class="btn btn-sm btn-success"><i class="bi bi-check-lg me-1"></i>Verify</button>
+                                            </div>
                                         </form>
                                         <form method="POST" action="{{ route('admin.payments.reject', $payment) }}">
                                             @csrf @method('PUT')
@@ -90,7 +109,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="text-center text-body-tertiary py-5">No payments yet.</td></tr>
+                        <tr><td colspan="9" class="text-center text-body-tertiary py-5">No payments yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>

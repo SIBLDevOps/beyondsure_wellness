@@ -11,7 +11,7 @@ class MemberLegTotal extends Model
 
     public $incrementing = false;
 
-    protected $fillable = ['member_id', 'left_bv', 'right_bv', 'matched_bv'];
+    protected $fillable = ['member_id', 'left_bv', 'right_bv', 'matched_bv', 'own_matched_bv'];
 
     protected function casts(): array
     {
@@ -19,6 +19,7 @@ class MemberLegTotal extends Model
             'left_bv' => 'decimal:2',
             'right_bv' => 'decimal:2',
             'matched_bv' => 'decimal:2',
+            'own_matched_bv' => 'decimal:2',
         ];
     }
 

@@ -143,6 +143,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('payments', [AdminPaymentController::class, 'index'])->name('payments.index');
         Route::put('payments/{payment}/verify', [AdminPaymentController::class, 'verify'])->name('payments.verify');
         Route::put('payments/{payment}/reject', [AdminPaymentController::class, 'reject'])->name('payments.reject');
+        Route::put('payments/{payment}/paid-at', [AdminPaymentController::class, 'changePaidAt'])->name('payments.paid-at');
 
         Route::get('cycles', [CycleController::class, 'index'])->name('cycles.index');
         Route::post('cycles', [CycleController::class, 'store'])->name('cycles.store');
@@ -198,6 +199,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('reports/levels', [ReportController::class, 'levels'])->name('reports.levels');
         Route::get('reports/levels/csv', [ReportController::class, 'levelsCsv'])->name('reports.levels.csv');
         Route::get('reports/levels/earners/csv', [ReportController::class, 'levelsEarnersCsv'])->name('reports.levels.earners.csv');
+
+        Route::get('reports/distribution', [ReportController::class, 'distribution'])->name('reports.distribution');
+        Route::get('reports/distribution/csv', [ReportController::class, 'distributionCsv'])->name('reports.distribution.csv');
 
         Route::get('reports/cascade', [ReportController::class, 'cascade'])->name('reports.cascade');
         Route::get('reports/cascade/csv', [ReportController::class, 'cascadeCsv'])->name('reports.cascade.csv');

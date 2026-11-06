@@ -75,7 +75,7 @@ class AuditLog extends Model
             $is('admin.account.password', 'admin.account.two-factor', 'admin.two-factor') || in_array($action, ['admin.team.password', 'admin.team.two-factor-reset'], true) => 'security',
             $is('admin.settings', 'admin.site-content', 'change.setting') => 'settings',
             $is('admin.cycles', 'change.cycle') => 'cycles',
-            $is('admin.payments', 'admin.withdrawals', 'admin.orders', 'admin.dispatch', 'admin.refunds', 'change.payment', 'change.withdrawal', 'change.order') => 'money',
+            $is('admin.payments', 'payment.', 'admin.withdrawals', 'admin.orders', 'admin.dispatch', 'admin.refunds', 'change.payment', 'change.withdrawal', 'change.order') => 'money',
             $is('admin.plans', 'admin.products', 'admin.categories', 'change.plan', 'change.product', 'change.category', 'change.rank') => 'catalog',
             $is('admin.members', 'admin.regions', 'admin.activation', 'change.member', 'change.region') => 'members',
             $is('admin.team', 'change.user') => 'staff',

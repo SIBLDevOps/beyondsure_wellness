@@ -68,6 +68,11 @@ return [
     'timezone' => 'UTC',
 
     /*
+     * The business's own time zone. Day rules such as "active by 23:59 the same day" are judged in it, not in UTC.
+     */
+    'business_timezone' => env('BUSINESS_TIMEZONE', 'Asia/Kolkata'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------

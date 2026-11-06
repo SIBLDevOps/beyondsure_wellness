@@ -144,12 +144,13 @@
         border: 2px solid var(--brand-600, #059669);
         background: linear-gradient(180deg, var(--brand-50, #ecfdf5) 0%, #ffffff 42%);
     }
-    .genealogy-node.is-active-month {
+        .genealogy-node.is-active-month {
         border-top: 3px solid var(--brand-600, #059669);
     }
     .genealogy-node-root.is-active-month {
         border-top: 3px solid var(--brand-600, #059669);
     }
+    .genealogy-node.is-unpaid, .genealogy-node.is-unpaid.is-active-month, .genealogy-node.is-unpaid.is-inactive-month { border: 1.5px dashed #dc2626; border-top: 3px solid #dc2626; background: linear-gradient(180deg, #fef2f2 0%, #ffffff 55%); }
     .genealogy-node-vacant {
         width: 145px;
         background: rgba(255, 255, 255, .65);
@@ -184,7 +185,7 @@
                     <label class="mb-0 fw-medium">Depth:</label>
                     <select name="depth" onchange="this.form.submit()" class="form-select form-select-sm" style="width: auto;">
                         @foreach ([2, 3, 4, 5, 6, 7] as $d)
-                            <option value="{{ $d }}" @selected($depth == $d)>{{ $d }} Levels</option>
+                            <option value="{{ $d }}" @selected($depth == $d)>{{ $d }} levels (L1–L{{ $d }})</option>
                         @endforeach
                     </select>
                 </form>
@@ -216,6 +217,21 @@
     </div>
 
     <div class="card-body">
+        {{-- How much of the team is on screen: the tree stops at the chosen depth, the figures above count everyone. --}}
+        @isset($subtreeSize)
+            @php $shownCount = count($flatNodes); @endphp
+            @if ($subtreeSize > $shownCount)
+                <div class="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2 py-2 small" role="status" id="treeCoverage">
+                    <span><i class="bi bi-info-circle me-1"></i>Showing <strong>{{ $shownCount }}</strong> of <strong>{{ $subtreeSize }}</strong> members: the top {{ $depth }} levels (L1 is {{ $member->name }}). The figures at the top of the page count everyone.</span>
+                    @if ($depth < 7)
+                        <a href="{{ request()->fullUrlWithQuery(['depth' => $depth + 1]) }}" class="btn btn-sm btn-outline-primary">Show {{ $depth + 1 }} levels</a>
+                    @endif
+                </div>
+            @else
+                <div class="small text-secondary mb-2" id="treeCoverage"><i class="bi bi-check-circle text-success me-1"></i>Showing all {{ $shownCount }} members of this team.</div>
+            @endif
+        @endisset
+
         {{-- Legend Bar --}}
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 small text-secondary">
             <div class="d-flex align-items-center flex-wrap gap-3">
@@ -390,7 +406,7 @@
                             @forelse ($levelBreakdown as $row)
                                 <tr>
                                     <td class="ps-3">
-                                        <span class="badge bg-primary-subtle text-primary">Level {{ $row['level'] }}</span>
+                                        <span class="badge bg-primary-subtle text-primary">Level {{ $row['level'] }}</span><span class="text-body-tertiary ms-1" style="font-size:.7rem;">= L{{ $row['level'] + 1 }} in the tree</span>
                                     </td>
                                     <td class="text-center fw-semibold">{{ $row['count'] }}</td>
                                     <td class="text-center">
@@ -440,7 +456,10 @@
         // and can be zoomed from 15% to 140%. Layout size doesn't change with a CSS scale, so the
         // empty space it would leave is trimmed and the tree is centred by hand.
         let scale = 1;
-        const MIN_SCALE = 0.15, FIT_FLOOR = 0.3, MAX_SCALE = 1.4;
+        const MIN_SCALE = 0.15, MAX_SCALE = 1.4;
+        // On a phone a tree squeezed to 30% cannot be read, so it is fitted no smaller than 50% and scrolls sideways.
+        const fitFloor = () => (window.innerWidth < 768 ? 0.5 : 0.3);
+        let zoomedByHand = false;
         // CSS zoom (unlike transform) changes the real layout size, so the scroll area shrinks with it.
         let naturalW = 1;
         if (canvas) { canvas.style.minWidth = '0'; canvas.style.width = 'max-content'; canvas.style.transform = 'none'; naturalW = canvas.offsetWidth; }
@@ -448,7 +467,7 @@
         function fitScale() {
             if (!canvas || !visualContainer) return 1;
             const avail = visualContainer.clientWidth - 32;
-            return Math.min(1, Math.max(FIT_FLOOR, Math.floor(avail / naturalW * 100) / 100));
+            return Math.min(1, Math.max(fitFloor(), Math.floor(avail / naturalW * 100) / 100));
         }
         function applyZoom() {
             if (!canvas) return;
@@ -463,21 +482,30 @@
 
         if (btnZoomIn) {
             btnZoomIn.addEventListener('click', () => {
+                zoomedByHand = true;
                 scale = Math.min(MAX_SCALE, Math.round((scale + 0.1) * 100) / 100);
                 applyZoom();
             });
         }
         if (btnZoomOut) {
             btnZoomOut.addEventListener('click', () => {
+                zoomedByHand = true;
                 scale = Math.max(MIN_SCALE, Math.round((scale - 0.1) * 100) / 100);
                 applyZoom();
             });
         }
         if (btnZoomReset) {
             btnZoomReset.title = 'Fit the whole tree to the screen';
-            btnZoomReset.addEventListener('click', fitToScreen);
+            btnZoomReset.addEventListener('click', () => { zoomedByHand = false; fitToScreen(); });
         }
         fitToScreen();
+
+        // The window was resized (or turned): fit again, unless the person chose their own zoom.
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { if (!zoomedByHand && !visualContainer.classList.contains('d-none')) fitToScreen(); }, 150);
+        });
 
         // Drag to pan the tree sideways.
         if (visualContainer) {

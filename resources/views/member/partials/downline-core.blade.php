@@ -153,10 +153,10 @@
     .genealogy-node.is-active-month {
         border-top: 3px solid var(--brand-600, #059669);
     }
-    .genealogy-node.is-unpaid { border-style: dashed; border-color: var(--bs-warning-border-subtle, #ffe69c); }
-    .genealogy-node.is-inactive-month {
+        .genealogy-node.is-inactive-month {
         border-top: 3px solid #94a3b8;
     }
+    .genealogy-node.is-unpaid, .genealogy-node.is-unpaid.is-active-month, .genealogy-node.is-unpaid.is-inactive-month { border: 1.5px dashed #dc2626; border-top: 3px solid #dc2626; background: linear-gradient(180deg, #fef2f2 0%, #ffffff 55%); }
     .genealogy-node-vacant {
         width: 145px;
         background: rgba(255, 255, 255, .75);

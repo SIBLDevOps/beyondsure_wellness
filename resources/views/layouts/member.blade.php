@@ -214,6 +214,8 @@
                     </div>
                 @endif
 
+                @include('member.partials.locked-income', ['member' => $currentMember ?? null])
+
                 @yield('content')
             </main>
         </div>

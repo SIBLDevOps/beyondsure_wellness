@@ -17,6 +17,7 @@
             <i class="bi bi-stars fs-5"></i>
             <div><strong>Choose a plan to get started.</strong> Your wallet, team and earnings open as soon as your first payment is approved.</div>
         </div>
+        @include('member.partials.share-links', ['member' => auth('member')->user()])
     @endif
     <p class="text-secondary mb-3">
         Pick a wellness plan bundle — you'll confirm billing and complete payment on the next step.

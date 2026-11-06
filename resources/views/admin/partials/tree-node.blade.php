@@ -4,7 +4,7 @@
 
 @if ($node)
     <li class="genealogy-branch">
-        <div class="genealogy-node {{ $node['level'] === 1 ? 'genealogy-node-root' : '' }} {{ $node['active_this_month'] ? 'is-active-month' : 'is-inactive-month' }}">
+        <div class="genealogy-node {{ $node['level'] === 1 ? 'genealogy-node-root' : '' }} {{ $node['active_this_month'] ? 'is-active-month' : 'is-inactive-month' }} {{ ($node['member']->status ?? 'active') !== 'active' ? 'is-unpaid' : '' }}">
             {{-- Top Position & Level Strip --}}
             <div class="d-flex align-items-center justify-content-between gap-2 mb-2 pb-1 border-bottom">
                 @if ($node['level'] === 1)

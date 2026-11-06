@@ -26,6 +26,13 @@
                 <div class="text-body-tertiary small">Total earned minus total withdrawn — what's still sitting in member wallets, all-time.</div>
             </div></div>
         </div>
+        <div class="col-md-6">
+            <div class="card border"><div class="card-body">
+                <div class="text-secondary small">Sponsor income kept by the company</div>
+                <div class="fs-3 fw-bold">₹{{ number_format($data['kept_sponsor'], 2) }}</div>
+                <div class="text-body-tertiary small">Sponsor income on purchases made before the sponsor was active that day. It is not paid to anyone, including the root, and counts as company profit. Period: {{ $from->format('d M Y') }} to {{ $to->format('d M Y') }}.</div>
+            </div></div>
+        </div>
     </div>
 
     <div class="card border mb-4">

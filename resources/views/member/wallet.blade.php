@@ -3,6 +3,8 @@
 @section('title', 'Wallet & Payouts')
 
 @section('content')
+    @include('member.partials.missed-income-card', ['member' => $member])
+
     <div class="row g-3 mb-4">
         <div class="col-md-4">
             <div class="card border h-100">

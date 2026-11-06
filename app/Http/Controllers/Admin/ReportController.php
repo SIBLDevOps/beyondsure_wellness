@@ -204,6 +204,47 @@ class ReportController extends Controller
         return $this->reports->csv($csvRows, ['Member', 'Code', 'Mobile', 'Tree Depth', 'Self Income', 'Sponsor Income', 'Matching Income', 'Rank Income', 'Total Income', 'Entries']);
     }
 
+    /** How the money is distributed: sales to income paid to what the company kept, by cycle, with the rules in force. */
+    public function distribution(Request $request): View
+    {
+        ['from' => $from, 'to' => $to] = $this->reports->range($request->from, $request->to);
+        $code = is_string($request->query('order')) ? trim($request->query('order')) : '';
+
+        return view('admin.reports.distribution', [
+            'from' => $from,
+            'to' => $to,
+            'flow' => $this->reports->moneyFlow($from, $to),
+            'orderCode' => $code,
+            'trace' => $code !== '' ? $this->reports->orderTrace($code) : null,
+            'rules' => [
+                'self' => (float) \App\Models\Setting::get('self_pct', 10),
+                'sponsor' => (float) \App\Models\Setting::get('sponsor_pct', 20),
+                'levels' => \App\Models\Setting::getLevelPercentages(),
+                'rank_pool' => (float) \App\Models\Setting::get('rank_pool_pct', 3),
+                'breaker' => (float) \App\Models\Setting::get('circuit_breaker_pct', 60),
+                'root' => \App\Support\CompensationSettings::rootAlwaysPaid(),
+                'inactive_sponsor' => \App\Support\CompensationSettings::inactiveEarnsSponsor(),
+                'inactive_matching' => \App\Support\CompensationSettings::inactiveEarnsMatching(),
+            ],
+        ]);
+    }
+
+    public function distributionCsv(Request $request): StreamedResponse
+    {
+        ['from' => $from, 'to' => $to] = $this->reports->range($request->from, $request->to);
+        $f = fn ($n) => number_format((float) $n, 2, '.', '');
+
+        $rows = collect($this->reports->moneyFlow($from, $to)['cycles'])->map(fn ($r) => [
+            $r['cycle']->period_start->format('Y-m-d'), $r['cycle']->period_end->format('Y-m-d'), $r['cycle']->approved_at?->format('Y-m-d H:i'), $r['orders'],
+            $f($r['sales']), $f($r['gst']), $f($r['taxable']), $f($r['pool_bv']),
+            $f($r['self']), $f($r['sponsor']), $f($r['matching']), $f($r['rank']), $f($r['paid']), $r['paid_pct'],
+            $f($r['unspent']), $f($r['missed_sponsor']), $f($r['missed_matching']), $f($r['not_generated']),
+        ]);
+
+        return $this->reports->csv($rows, ['Period start', 'Period end', 'Approved', 'Orders', 'Sales (incl. GST)', 'GST', 'Taxable sales', 'Pool BV',
+            'Self income', 'Sponsor income', 'Matching income', 'Rank income', 'Total paid', 'Paid % of pool',
+            'Left in pool', 'Sponsor income missed', 'Matching income missed', 'No match happened']);
+    }
     /** The 7th level cascade: each matching event with the seven people paid for it, the root's slot marked. */
     public function cascade(Request $request): View
     {

@@ -76,6 +76,7 @@ class AdminPermissions
         'admin.reports.payouts' => 'finance',
         'admin.reports.levels' => 'finance',
         'admin.reports.cascade' => 'finance',
+        'admin.reports.distribution' => 'finance',
         'admin.reports.pending' => 'reports.pending',
         'admin.reports.repurchase' => 'reports.repurchase',
     ];

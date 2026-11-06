@@ -89,7 +89,7 @@ class CompensationEngine
     {
         DB::transaction(function () use ($cycle) {
             $this->newBvThisRun = [];
-            $orders = Order::where('status', 'paid')->whereNull('cycle_id')->lockForUpdate()->with('member.sponsor')->get();
+            $orders = Order::where('status', 'paid')->whereNull('cycle_id')->lockForUpdate()->with('member.sponsor', 'payment')->get();
 
             $poolBv = 0.0;
             $totalPaid = 0.0;
@@ -132,9 +132,12 @@ class CompensationEngine
             $paid += $selfAmt;
         }
 
-        if ($order->member->sponsor_id && $this->mayEarn($order->member->sponsor, $this->inactiveEarnsSponsor)) {
+        if ($order->member->sponsor_id && $order->member->sponsor) {
             $sponsorAmt = round($bv * $this->sponsorPct, 2);
-            if ($sponsorAmt > 0) {
+            if ($sponsorAmt > 0 && ! $this->sponsorQualifies($order->member->sponsor, $order)) {
+                // Not paid, and not given to anyone else: the company keeps it. Recorded so it can be reported and shown.
+                $this->lockSponsorIncome($order->member->sponsor, $order, $cycle, $sponsorAmt);
+            } elseif ($sponsorAmt > 0) {
                 LedgerEntry::create([
                     'member_id' => $order->member->sponsor_id,
                     'source_member_id' => $order->member_id,
@@ -184,19 +187,37 @@ class CompensationEngine
         $pendingPayouts = [];
         $grossTotalAcrossNetwork = 0.0;
 
-        foreach (MemberLegTotal::all() as $legTotal) {
-            $newlyMatched = min((float) $legTotal->left_bv, (float) $legTotal->right_bv) - (float) $legTotal->matched_bv;
+        $ownTracked = \App\Support\BusinessDay::ownMatchReady();
 
-            if ($newlyMatched <= 0) {
+        foreach (MemberLegTotal::all() as $legTotal) {
+            $matchedNow = min((float) $legTotal->left_bv, (float) $legTotal->right_bv);
+            $newlyMatched = $matchedNow - (float) $legTotal->matched_bv;
+            // What the member's OWN match (level 1) has still to be paid on. Normally the same as newlyMatched; it grows
+            // while a member placed directly under them is not active, and is paid once that member is active.
+            $ownPending = $ownTracked ? $matchedNow - (float) $legTotal->own_matched_bv : $newlyMatched;
+
+            if ($newlyMatched <= 0 && $ownPending <= 0) {
                 continue;
             }
 
-            $legTotal->update(['matched_bv' => (float) $legTotal->matched_bv + $newlyMatched]);
-
             $node = Member::find($legTotal->member_id);
+
+            // A member's own match needs both members placed directly under them (the head of each leg) to be active.
+            $headsActive = ! $ownTracked || $this->bothHeadsActive($node);
+            $ownBase = ! $node || $node->status !== 'active' || $headsActive ? max(0.0, $ownPending) : 0.0;
+            if ($node && $node->status !== 'active') {
+                $ownBase = max(0.0, $newlyMatched);   // a member who is not active loses their own slot, it is not deferred
+            }
+
+            $legTotal->update(array_filter([
+                'matched_bv' => $newlyMatched > 0 ? $matchedNow : null,
+                // Moves forward when the amount is paid (heads active) or lost (the member is not active); waits otherwise.
+                'own_matched_bv' => ($ownTracked && ($headsActive || ! $node || $node->status !== 'active')) ? $matchedNow : null,
+            ], fn ($v) => $v !== null));
 
             $newBv = ($this->newBvThisRun[$legTotal->member_id]['left'] ?? 0.0)
                 + ($this->newBvThisRun[$legTotal->member_id]['right'] ?? 0.0);
+            $newBv = max($newBv, $ownBase);
 
             // v2 §4 Eligibility: below this layer's minimum volume, the match still consumes BV
             // (carry-forward is unaffected) but the payout is forfeited to the company outright —
@@ -213,13 +234,23 @@ class CompensationEngine
             $grossTotal = 0.0;
             foreach ($payees as $item) {
                 // A member who has not paid yet gets no matching income (unless allowed); the others above are unaffected.
+                $isRoot = $item['root'] ?? false;
+                $pct = isset($this->levelPcts[$item['level']]) ? ($this->levelPcts[$item['level']] / 100) : $this->matchingPct;
+                // The member's own slot (level 1) is paid on its own amount; every other slot on the newly matched volume.
+                $base = ($ownTracked && $item['level'] === 1 && $item['member']->id === $node->id) ? $ownBase : $newlyMatched;
+                $amt = round($base * $pct, 2);
+
                 if (! $this->mayEarn($item['member'], $this->inactiveEarnsMatching)) {
+                    // Not paid, but shown to the member: what they missed by not having bought a plan yet.
+                    $this->lockIncome($item['member'], $node, $cycle, (int) $item['level'], $amt);
+
                     continue;
                 }
 
-                $isRoot = $item['root'] ?? false;
-                $pct = isset($this->levelPcts[$item['level']]) ? ($this->levelPcts[$item['level']] / 100) : $this->matchingPct;
-                $amt = round($newlyMatched * $pct, 2);
+                if ($amt <= 0) {
+                    continue;
+                }
+
                 $gross[] = ['member' => $item['member'], 'level' => $item['level'], 'amount' => $amt, 'root' => $isRoot];
                 $grossTotal += $amt;
             }
@@ -268,6 +299,82 @@ class CompensationEngine
         }
 
         return $totalPaid;
+    }
+
+    /** True when the members placed directly under this one, on the left and on the right, have both paid. */
+    private function bothHeadsActive(?Member $node): bool
+    {
+        if (! $node) {
+            return false;
+        }
+
+        $heads = Member::where('placement_id', $node->id)->whereIn('position', ['left', 'right'])->get();
+
+        return $heads->where('position', 'left')->where('status', 'active')->isNotEmpty()
+            && $heads->where('position', 'right')->where('status', 'active')->isNotEmpty();
+    }
+    /**
+     * Sponsor income on a purchase is paid only if the sponsor was active by the end (23:59, India time) of the day the
+     * buyer paid. A sponsor who activates the next day earns from that day on. The admin switch for non-active members
+     * overrides this. A sponsor with no activation date on record (from before this rule) is treated as qualified.
+     */
+    private function sponsorQualifies(?Member $sponsor, Order $order): bool
+    {
+        if (! $sponsor) {
+            return false;
+        }
+
+        if ($this->inactiveEarnsSponsor) {
+            return true;
+        }
+
+        if ($sponsor->status !== 'active') {
+            return false;
+        }
+
+        if (! $sponsor->activated_at) {
+            return true;
+        }
+
+        $bought = $order->payment?->paid_at ?? $order->payment?->verified_at ?? $order->created_at;
+
+        return \App\Support\BusinessDay::date($sponsor->activated_at) <= \App\Support\BusinessDay::date($bought);
+    }
+
+    private function lockSponsorIncome(Member $sponsor, Order $order, Cycle $cycle, float $amount): void
+    {
+        if (! \App\Models\LockedIncome::ready()) {
+            return;
+        }
+
+        \App\Models\LockedIncome::create([
+            'member_id' => $sponsor->id,
+            'source_member_id' => $order->member_id,
+            'cycle_id' => $cycle->id,
+            'order_id' => $order->id,
+            'type' => 'sponsor',
+            'level' => 1,
+            'amount' => $amount,
+            'description' => "Sponsor income on order {$order->order_code} (your account was not active that day)",
+        ]);
+    }
+
+    /** Remembers matching income a member could not receive because they have not bought a plan. Never paid. */
+    private function lockIncome(?Member $member, Member $source, Cycle $cycle, int $level, float $amount): void
+    {
+        if (! $member || $amount <= 0 || $member->status === 'active' || ! \App\Models\LockedIncome::ready()) {
+            return;
+        }
+
+        \App\Models\LockedIncome::create([
+            'member_id' => $member->id,
+            'source_member_id' => $source->id,
+            'cycle_id' => $cycle->id,
+            'type' => 'matching',
+            'level' => $level,
+            'amount' => $amount,
+            'description' => "Matching (level {$level}) from {$source->member_code}",
+        ]);
     }
 
     /** True when the gate is off, or this layer's own new BV this cycle meets its minimum. */

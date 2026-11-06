@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\User;
+use App\Support\BusinessDay;
 use Illuminate\Support\Facades\DB;
 
 class PaymentService
@@ -52,12 +53,12 @@ class PaymentService
     }
 
     /** Only a pending payment on an order that is still awaiting payment can be verified, and only once. */
-    public function verify(Payment $payment, User $admin): void
+    public function verify(Payment $payment, User $admin, ?\Carbon\CarbonInterface $paidAt = null): void
     {
         $firstPurchase = false;
         $orderId = null;
 
-        DB::transaction(function () use ($payment, $admin, &$firstPurchase, &$orderId) {
+        DB::transaction(function () use ($payment, $admin, $paidAt, &$firstPurchase, &$orderId) {
             $lockedPayment = Payment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
             $order = Order::whereKey($lockedPayment->order_id)->lockForUpdate()->firstOrFail();
 
@@ -69,11 +70,15 @@ class PaymentService
                 throw new \RuntimeException('This order is '.str_replace('_', ' ', $order->status).', so its payment cannot be verified.');
             }
 
+            // The date the member really paid: what the admin entered, otherwise the time they submitted it. Never in the future.
+            $paidAt = $this->normalise($paidAt ?? $lockedPayment->created_at ?? now());
+            $this->assertNotFuture($paidAt);
+
             $lockedPayment->update([
                 'status' => 'verified',
                 'verified_by' => $admin->id,
                 'verified_at' => now(),
-            ]);
+            ] + (BusinessDay::columnsReady() ? ['paid_at' => $paidAt] : []));
 
             $order->update(['status' => 'paid']);
             app(InvoiceService::class)->issue($order);
@@ -82,11 +87,44 @@ class PaymentService
             // checked separately for matching/rank eligibility via order recency).
             $firstPurchase = $order->member->status !== 'active';
             $orderId = $order->id;
-            $order->member->update(['status' => 'active']);
+            $order->member->update(['status' => 'active'] + (BusinessDay::columnsReady() ? ['activated_at' => $order->member->activated_at ?? $paidAt] : []));
         });
 
         $payment->refresh();
         $this->announcePurchase($orderId, $firstPurchase);
+    }
+
+    /** Stored in the application's time zone (UTC): a moment given in India time is converted, not stored as it reads. */
+    private function normalise(\Carbon\CarbonInterface $moment): \Carbon\CarbonInterface
+    {
+        return $moment->copy()->setTimezone(config('app.timezone'));
+    }
+
+    private function assertNotFuture(\Carbon\CarbonInterface $paidAt): void
+    {
+        if ($paidAt->isAfter(now()->addMinutes(2))) {
+            throw new \RuntimeException('The payment date cannot be in the future.');
+        }
+    }
+
+    /**
+     * Changes the date a verified payment was made (Super Admin only, logged by the caller). The member's activation
+     * date follows their first payment. Income already settled in an approved cycle is never recalculated.
+     */
+    public function changePaidAt(Payment $payment, \Carbon\CarbonInterface $paidAt): void
+    {
+        if ($payment->status !== 'verified') {
+            throw new \RuntimeException('Only an approved payment has a payment date to change.');
+        }
+        $paidAt = $this->normalise($paidAt);
+        $this->assertNotFuture($paidAt);
+
+        DB::transaction(function () use ($payment, $paidAt) {
+            $payment->update(['paid_at' => $paidAt]);
+            $memberId = $payment->order()->withoutGlobalScopes()->value('member_id');
+            $first = Payment::where('status', 'verified')->whereHas('order', fn ($q) => $q->withoutGlobalScopes()->where('member_id', $memberId))->min('paid_at');
+            \App\Models\Member::withoutGlobalScopes()->whereKey($memberId)->update(['activated_at' => $first]);
+        });
     }
 
     public function reject(Payment $payment, User $admin): void
@@ -130,12 +168,12 @@ class PaymentService
                 'reference' => $gatewayPaymentId,
                 'status' => 'verified',
                 'verified_at' => now(),
-            ]);
+            ] + (BusinessDay::columnsReady() ? ['paid_at' => now()] : []));
 
             $locked->update(['status' => 'paid']);
             app(InvoiceService::class)->issue($locked);
             $firstPurchase = $locked->member->status !== 'active';
-            $locked->member->update(['status' => 'active']);
+            $locked->member->update(['status' => 'active'] + (BusinessDay::columnsReady() ? ['activated_at' => $locked->member->activated_at ?? now()] : []));
             $order->refresh();
 
             return true;

@@ -485,7 +485,13 @@ class ReportService
 
         $walletLiability = (float) $this->ledger()->sum('amount');
 
+        // Sponsor income nobody earned because the sponsor was not active that day: the company keeps it.
+        $keptSponsor = \App\Models\LockedIncome::ready()
+            ? (float) $this->inRegion(\App\Models\LockedIncome::query(), 'member')->where('type', 'sponsor')->whereBetween('created_at', [$from, $to])->sum('amount')
+            : 0.0;
+
         return [
+            'kept_sponsor' => $keptSponsor,
             'cycles' => $cycles,
             'cycles_all' => $cyclesAll,
             'by_type' => $byType,
@@ -565,6 +571,87 @@ class ReportService
         ];
     }
 
+    // ------------------------------------------------------------------------------------------ money distribution
+
+    /**
+     * Where the money of the approved cycles in a period went, reconciled to the orders and the ledger: sales, GST,
+     * the BV pool that funds income, what was paid to members by type, and what the company kept (income nobody could
+     * receive because the member was not active, and the pool that no match used). One row per cycle, plus totals.
+     */
+    public function moneyFlow(Carbon $from, Carbon $to): array
+    {
+        $cycles = Cycle::where('status', 'approved')->whereBetween('approved_at', [$from, $to])->orderByDesc('id')->get();
+        $ids = $cycles->pluck('id');
+
+        $orders = $ids->isEmpty() ? collect() : $this->orders()->whereIn('cycle_id', $ids)
+            ->selectRaw('cycle_id, count(*) as n, sum(amount) as amount, sum(gst_amount) as gst, sum(taxable_amount) as taxable, sum(bv) as bv')
+            ->groupBy('cycle_id')->get()->keyBy('cycle_id');
+
+        $ledger = $ids->isEmpty() ? collect() : $this->ledger()->whereIn('cycle_id', $ids)->whereIn('type', ['self', 'sponsor', 'matching', 'rank'])
+            ->selectRaw('cycle_id, type, sum(amount) as s')->groupBy('cycle_id', 'type')->get()->groupBy('cycle_id');
+
+        $locked = ($ids->isEmpty() || ! \App\Models\LockedIncome::ready()) ? collect() : $this->inRegion(\App\Models\LockedIncome::query(), 'member')
+            ->whereIn('cycle_id', $ids)->selectRaw('cycle_id, type, sum(amount) as s')->groupBy('cycle_id', 'type')->get()->groupBy('cycle_id');
+
+        $sum = fn ($rows, string $type) => (float) ($rows?->firstWhere('type', $type)?->s ?? 0);
+        $rows = [];
+
+        foreach ($cycles as $c) {
+            $o = $orders->get($c->id);
+            $l = $ledger->get($c->id);
+            $k = $locked->get($c->id);
+            $pool = (float) ($o->bv ?? 0);
+            $paid = $sum($l, 'self') + $sum($l, 'sponsor') + $sum($l, 'matching') + $sum($l, 'rank');
+            $unspent = $pool - $paid;
+            $missedS = $sum($k, 'sponsor');
+            $missedM = $sum($k, 'matching');
+
+            $rows[] = [
+                'cycle' => $c,
+                'orders' => (int) ($o->n ?? 0),
+                'sales' => (float) ($o->amount ?? 0),
+                'gst' => (float) ($o->gst ?? 0),
+                'taxable' => (float) ($o->taxable ?? 0),
+                'pool_bv' => $pool,
+                'self' => $sum($l, 'self'),
+                'sponsor' => $sum($l, 'sponsor'),
+                'matching' => $sum($l, 'matching'),
+                'rank' => $sum($l, 'rank'),
+                'paid' => $paid,
+                'paid_pct' => $pool > 0 ? round($paid / $pool * 100, 1) : 0.0,
+                'unspent' => $unspent,
+                'missed_sponsor' => $missedS,
+                'missed_matching' => $missedM,
+                'not_generated' => max(0.0, $unspent - $missedS - $missedM),
+            ];
+        }
+
+        $keys = ['orders', 'sales', 'gst', 'taxable', 'pool_bv', 'self', 'sponsor', 'matching', 'rank', 'paid', 'unspent', 'missed_sponsor', 'missed_matching', 'not_generated'];
+        $totals = [];
+        foreach ($keys as $key) {
+            $totals[$key] = array_sum(array_column($rows, $key));
+        }
+        $totals['orders'] = (int) $totals['orders'];
+        $totals['paid_pct'] = $totals['pool_bv'] > 0 ? round($totals['paid'] / $totals['pool_bv'] * 100, 1) : 0.0;
+
+        return ['cycles' => $rows, 'totals' => $totals];
+    }
+
+    /** One order and every rupee it produced: the income lines posted for it, and the sponsor income nobody could receive. */
+    public function orderTrace(string $code): ?array
+    {
+        $order = $this->orders()->where('order_code', $code)->with('member', 'plan')->first();
+
+        if (! $order) {
+            return null;
+        }
+
+        return [
+            'order' => $order,
+            'lines' => $this->ledger()->where('order_id', $order->id)->with('member')->orderBy('id')->get(),
+            'kept' => \App\Models\LockedIncome::ready() ? \App\Models\LockedIncome::where('order_id', $order->id)->with('member')->orderBy('id')->get() : collect(),
+        ];
+    }
     // ------------------------------------------------------------------------------------------ 7th level cascade
 
     public const CASCADE_SLOTS = 7;
