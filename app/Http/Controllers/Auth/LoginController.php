@@ -41,7 +41,7 @@ class LoginController extends Controller
                 ->with('status', "We couldn't find an account for {$data['phone']} — let's get you registered.");
         }
 
-        $result = $this->otp->issue($data['phone'], 'login');
+        $result = $this->otp->issue($data['phone'], 'login', Member::where('phone', $data['phone'])->value('name'));
 
         if ($result['throttled']) {
             return back()->withErrors(['phone' => "Please wait {$result['retry_after']}s before requesting another OTP."]);
@@ -73,7 +73,7 @@ class LoginController extends Controller
             return redirect()->route('login');
         }
 
-        $result = $this->otp->issue($phone, 'login');
+        $result = $this->otp->issue($phone, 'login', Member::where('phone', $phone)->value('name'));
 
         if ($result['throttled']) {
             return back()->withErrors(['otp' => "Please wait {$result['retry_after']}s before requesting another OTP."]);

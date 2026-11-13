@@ -10,4 +10,20 @@ return [
      * runs with APP_ENV=production needs this switch on. A live site: APP_ENV=production and this switch off.
      */
     'show_on_screen' => (bool) env('OTP_SHOW_ON_SCREEN', false),
+
+    /*
+     * Send the one-time code to the member's mobile by SMS through the True Alpha SMS API:
+     *   POST {url}   {"template_slug": "bima_new_otp", "mobile": "9876543210", "values": ["XYZ", "876767", "BeyondSure+"]}
+     * The values are, in order: the person's name, the code, the brand. It is OFF until OTP_SMS_ENABLED=true. The API key issued for the
+     * SMS API (OTP_SMS_TOKEN) is REQUIRED: it is sent as "Authorization: Bearer ...", and without it the API answers
+     * 401 SMS_API_KEY_REQUIRED. Nothing is logged except the masked number and the API's reason.
+     */
+    'sms' => [
+        'enabled' => (bool) env('OTP_SMS_ENABLED', false),
+        'url' => env('OTP_SMS_URL', 'https://preprod.truealpha.in/api/sms/v1/send'),
+        'template_slug' => env('OTP_SMS_TEMPLATE_SLUG', 'bima_new_otp'),
+        'brand' => env('OTP_SMS_BRAND'),
+        'token' => env('OTP_SMS_TOKEN'),
+        'timeout' => (int) env('OTP_SMS_TIMEOUT', 8),
+    ],
 ];

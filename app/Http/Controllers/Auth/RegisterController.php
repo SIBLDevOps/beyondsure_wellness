@@ -176,7 +176,7 @@ class RegisterController extends Controller
         $data['region_id'] = $region->id;
         unset($data['region']);
 
-        $result = $this->otp->issue($data['phone'], 'register');
+        $result = $this->otp->issue($data['phone'], 'register', $data['name'] ?? null);
 
         if ($result['throttled']) {
             return back()->withErrors(['phone' => "Please wait {$result['retry_after']}s before requesting another OTP."]);
@@ -208,7 +208,7 @@ class RegisterController extends Controller
             return redirect()->route('register');
         }
 
-        $result = $this->otp->issue($pending['phone'], 'register');
+        $result = $this->otp->issue($pending['phone'], 'register', $pending['name'] ?? null);
 
         if ($result['throttled']) {
             return back()->withErrors(['otp' => "Please wait {$result['retry_after']}s before requesting another OTP."]);
