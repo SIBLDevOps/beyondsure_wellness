@@ -112,7 +112,7 @@ class OtpService
             $response = Http::timeout((int) ($sms['timeout'] ?? 8))->acceptJson()->asJson()->withToken((string) $sms['token'])->post((string) $sms['url'], [
                 'template_slug' => $sms['template_slug'],
                 'mobile'        => $mobile,
-                'values'        => [$code, $person, $sms['brand'] ?: \App\Support\Site::name()],
+                'values'        => [$person, $code, $sms['brand'] ?: \App\Support\Site::name()],
             ]);
 
             if ($response->successful()) {
