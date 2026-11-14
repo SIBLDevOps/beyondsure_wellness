@@ -26,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
         // Brute-force and flooding limits. Keyed so one noisy visitor cannot lock everyone else out.
         RateLimiter::for('admin-login', fn (Request $r) => Limit::perMinute(5)->by(strtolower((string) $r->input('email')).'|'.$r->ip()));
         RateLimiter::for('otp-send', fn (Request $r) => Limit::perMinute(12)->by($r->ip()));
+        RateLimiter::for('admin-otp', fn (Request $r) => Limit::perMinute(10)->by('aotp|'.($r->session()->get('admin_otp.user_id') ?? 'none').'|'.$r->ip()));
         RateLimiter::for('otp-verify', fn (Request $r) => Limit::perMinute(20)->by($r->ip()));
         // The authenticator code step: five tries a minute for that half-finished sign-in, so six digits cannot be guessed.
         RateLimiter::for('two-factor', fn (Request $r) => Limit::perMinute(5)->by('2fa|'.($r->session()->get('two_factor.user_id') ?? 'none').'|'.$r->ip()));

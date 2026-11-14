@@ -44,6 +44,19 @@ class AdminAuthController extends Controller
             return back()->withErrors(['email' => 'This account does not have admin access.']);
         }
 
+        // Signing in with a code texted to the staff member's mobile (when switched on and they have a mobile saved).
+        if (config('otp.admin.enabled') && $user->phone) {
+            $result = app(\App\Services\OtpService::class)->issue($user->phone, 'admin_login', $user->name);
+            $request->session()->regenerate();
+            $request->session()->put('admin_otp', ['user_id' => $user->id, 'at' => now()->timestamp]);
+
+            $redirect = redirect()->route('admin.otp.challenge');
+
+            return $result['throttled']
+                ? $redirect->withErrors(['otp' => "A code was sent a moment ago. Use it, or ask for a new one in {$result['retry_after']}s."])
+                : $redirect->with('debug_code', $result['debug_code']);
+        }
+
         if ($user->hasTwoFactor()) {
             $request->session()->regenerate();
             $request->session()->put('two_factor', ['user_id' => $user->id, 'at' => now()->timestamp]);
@@ -54,6 +67,11 @@ class AdminAuthController extends Controller
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
         AuditLog::record('admin.login', $user->email, 'POST', '/admin/login', [], $user, $request->ip());
+
+        // The code step is on but there is no mobile to text: sign in, and ask them to add one.
+        if (config('otp.admin.enabled') && ! $user->phone) {
+            return redirect()->route('admin.dashboard')->with('status', 'Add your mobile number (Account, Change password page) to receive a sign-in code by SMS.');
+        }
 
         return redirect()->route('admin.dashboard');
     }

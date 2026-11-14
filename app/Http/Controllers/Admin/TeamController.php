@@ -102,6 +102,7 @@ class TeamController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($ignoreId)],
+            'phone' => ['nullable', 'regex:/^[6-9]\d{9}$/', Rule::unique('users', 'phone')->ignore($ignoreId)],
             'password' => [$ignoreId ? 'nullable' : 'required', 'string', 'min:8', 'max:100'],
             'permissions' => ['nullable', 'array'],
             'permissions.*' => ['string', Rule::in(AdminPermissions::keys())],
@@ -109,6 +110,8 @@ class TeamController extends Controller
             'region_ids' => ['nullable', 'array'],
             'region_ids.*' => ['integer', 'exists:regions,id'],
         ], [
+            'phone.regex' => 'Enter a valid 10-digit mobile number starting with 6, 7, 8 or 9.',
+            'phone.unique' => 'That mobile number already belongs to another staff member.',
             'region_ids.*.exists' => 'Unknown region.',
             'password.required' => 'Set a password for the new sub-admin (at least 8 characters).',
             'permissions.*.in' => 'Unknown permission.',

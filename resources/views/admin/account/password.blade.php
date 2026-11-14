@@ -36,6 +36,37 @@
                     </div>
                 </div>
             </form>
+
+            <form method="POST" action="{{ route('admin.account.mobile') }}" class="card border mt-4" id="mobile-card">
+                @csrf
+                @method('PUT')
+                <div class="card-header bg-transparent border-bottom-0 pt-4 px-4">
+                    <h2 class="h5 fw-bold mb-1"><i class="bi bi-phone me-2 text-primary"></i>Your mobile number</h2>
+                    <div class="text-secondary small">
+                        @if (config('otp.admin.enabled'))
+                            Your sign-in code is texted here after you enter your password.
+                        @else
+                            Save it now. When code sign-in is switched on, your code is texted here.
+                        @endif
+                        @if (auth()->user()->phone) Saved: <strong>{{ substr(auth()->user()->phone, 0, 2) }}******{{ substr(auth()->user()->phone, -2) }}</strong>@else <span class="text-danger">Not saved yet.</span>@endif
+                    </div>
+                </div>
+                <div class="card-body px-4 pb-4 d-grid gap-3">
+                    <div>
+                        <label class="form-label small fw-semibold" for="phone">10-digit mobile number</label>
+                        <input id="phone" name="phone" type="tel" inputmode="numeric" maxlength="10" required value="{{ old('phone') }}" placeholder="98XXXXXXXX"
+                            class="form-control @error('phone') is-invalid @enderror">
+                        @error('phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+                    <div>
+                        <label class="form-label small fw-semibold" for="mobile_current_password">Current password</label>
+                        <input id="mobile_current_password" name="current_password" type="password" autocomplete="current-password" required
+                            class="form-control @error('current_password') is-invalid @enderror">
+                        @error('current_password') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="pt-2 border-top"><button class="btn btn-success px-4"><i class="bi bi-check-lg me-1"></i>Save mobile number</button></div>
+                </div>
+            </form>
         </div>
         <div class="col-lg-6 col-xl-5">
             <div class="card border"><div class="card-body small">

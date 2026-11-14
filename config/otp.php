@@ -18,6 +18,15 @@ return [
      * SMS API (OTP_SMS_TOKEN) is REQUIRED: it is sent as "Authorization: Bearer ...", and without it the API answers
      * 401 SMS_API_KEY_REQUIRED. Nothing is logged except the masked number and the API's reason.
      */
+    /*
+     * Admin sign-in with a one-time code texted to the staff member's mobile, after the email and password.
+     * OFF until ADMIN_OTP_ENABLED=true. Staff who have not saved a mobile number yet still sign in with the password
+     * and are asked to add one. Uses the SMS settings below.
+     */
+    'admin' => [
+        'enabled' => (bool) env('ADMIN_OTP_ENABLED', false),
+    ],
+
     'sms' => [
         'enabled' => (bool) env('OTP_SMS_ENABLED', false),
         'url' => env('OTP_SMS_URL', 'https://preprod.truealpha.in/api/sms/v1/send'),

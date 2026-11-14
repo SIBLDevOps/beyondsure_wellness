@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'permissions', 'is_active', 'region_ids'])]
+#[Fillable(['name', 'email', 'phone', 'password', 'role', 'permissions', 'is_active', 'region_ids'])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable
 {
@@ -20,7 +20,7 @@ class User extends Authenticatable
     /** The fields whose changes by staff are written to the audit log. */
     public function auditFields(): array
     {
-        return ['name', 'email', 'role', 'is_active', 'permissions', 'region_ids'];
+        return ['name', 'email', 'phone', 'role', 'is_active', 'permissions', 'region_ids'];
     }
 
     /** @use HasFactory<UserFactory> */

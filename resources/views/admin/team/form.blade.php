@@ -41,6 +41,12 @@
                         <input id="email" name="email" type="email" value="{{ old('email', $subAdmin->email) }}" required class="form-control">
                     </div>
                     <div class="col-md-6">
+                        <label class="form-label small fw-semibold" for="phone">Mobile (their sign-in code goes here)</label>
+                        <input id="phone" name="phone" type="tel" inputmode="numeric" maxlength="10" value="{{ old('phone', $subAdmin->phone) }}" placeholder="98XXXXXXXX" class="form-control @error('phone') is-invalid @enderror">
+                        @error('phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        <div class="form-text">Optional. 10 digits starting with 6, 7, 8 or 9.</div>
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label small fw-semibold" for="password">Password @unless ($subAdmin->exists)<span class="text-danger">*</span>@endunless</label>
                         <input id="password" name="password" type="password" minlength="8" autocomplete="new-password" @required(! $subAdmin->exists) class="form-control">
                         <div class="form-text">{{ $subAdmin->exists ? 'Leave blank to keep the current password.' : 'At least 8 characters. Share it with them yourself.' }}</div>

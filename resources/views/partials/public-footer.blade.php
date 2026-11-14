@@ -34,7 +34,7 @@
             <ul class="mt-3 space-y-2 text-sm text-ink-400">
                 <li><a href="{{ route('login') }}" class="hover:text-brand-300">Member login</a></li>
                 <li><a href="{{ route('register') }}" class="hover:text-brand-300">Become a partner</a></li>
-                <li><a href="{{ route('admin.login') }}" class="hover:text-brand-300">Admin login</a></li>
+                {{-- <li><a href="{{ route('admin.login') }}" class="hover:text-brand-300">Admin login</a></li> --}}
             </ul>
         </div>
 

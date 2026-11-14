@@ -112,9 +112,10 @@ class OtpService
             $response = Http::timeout((int) ($sms['timeout'] ?? 8))->acceptJson()->asJson()->withToken((string) $sms['token'])->post((string) $sms['url'], [
                 'template_slug' => $sms['template_slug'],
                 'mobile'        => $mobile,
-                'values'        => [$person, $code, $sms['brand'] ?: \App\Support\Site::name()],
+                'values'        => [$person, $code, $person ?: \App\Support\Site::name()],
             ]);
-
+            //$sms['brand']
+            Log::info($response);
             if ($response->successful()) {
                 Log::info("OTP SMS handed to the SMS API for {$masked}.");
             } else {

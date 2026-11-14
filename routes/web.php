@@ -90,6 +90,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::middleware('guest:web')->group(function () {
         Route::get('/login', [AdminAuthController::class, 'create'])->name('login');
         Route::post('/login', [AdminAuthController::class, 'store'])->name('login.submit')->middleware('throttle:admin-login');
+        // The code texted to the staff member's mobile, after the right email and password (when switched on).
+        Route::get('/otp-challenge', [\App\Http\Controllers\Admin\AdminOtpChallengeController::class, 'create'])->name('otp.challenge');
+        Route::post('/otp-challenge', [\App\Http\Controllers\Admin\AdminOtpChallengeController::class, 'store'])->middleware('throttle:admin-otp')->name('otp.verify');
+        Route::post('/otp-challenge/resend', [\App\Http\Controllers\Admin\AdminOtpChallengeController::class, 'resend'])->middleware('throttle:admin-otp')->name('otp.resend');
+
         // The second step of signing in, for staff who switched on two-factor sign-in.
         Route::get('/two-factor-challenge', [\App\Http\Controllers\Admin\TwoFactorChallengeController::class, 'create'])->name('two-factor.challenge');
         Route::post('/two-factor-challenge', [\App\Http\Controllers\Admin\TwoFactorChallengeController::class, 'store'])->middleware('throttle:two-factor')->name('two-factor.verify');
@@ -167,6 +172,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('account/password', [\App\Http\Controllers\Admin\AccountController::class, 'edit'])->name('account.password');
         Route::put('account/password', [\App\Http\Controllers\Admin\AccountController::class, 'update'])->name('account.password.update');
+        Route::put('account/mobile', [\App\Http\Controllers\Admin\AccountController::class, 'mobile'])->name('account.mobile');
 
         Route::get('guide', [GuideController::class, 'index'])->name('guide.index');
 

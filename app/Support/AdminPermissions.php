@@ -86,7 +86,7 @@ class AdminPermissions
 
     /** Pages every signed-in staff member can reach. */
     private const ALWAYS = [
-        'admin.dashboard', 'admin.logout', 'admin.account.password', 'admin.account.password.update',
+        'admin.dashboard', 'admin.logout', 'admin.account.password', 'admin.account.password.update', 'admin.account.mobile',
         'admin.account.two-factor', 'admin.account.two-factor.enable', 'admin.account.two-factor.confirm', 'admin.account.two-factor.disable',
     ];
 
