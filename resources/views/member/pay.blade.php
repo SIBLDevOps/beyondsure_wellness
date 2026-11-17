@@ -106,10 +106,6 @@
                                 <td class="text-end pe-3">₹{{ number_format($order->gstAmount(), 2) }}</td>
                             </tr>
                             <tr>
-                                <td class="ps-3 text-secondary">Business Volume (BV)</td>
-                                <td class="text-end pe-3 text-success fw-medium">₹{{ number_format($order->bv, 2) }}</td>
-                            </tr>
-                            <tr>
                                 <th class="ps-3 py-2">Amount Due (incl. GST)</th>
                                 <th class="text-end pe-3 py-2 fs-6 text-dark">₹{{ number_format($order->amount, 2) }}</th>
                             </tr>

@@ -29,7 +29,7 @@
         <div class="card-header bg-light-subtle border-bottom py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div>
                 <h2 class="h6 mb-0 fw-semibold"><i class="bi bi-table me-2 text-success"></i>Plan Bundles Comparison</h2>
-                <div class="text-body-tertiary small">Compare prices, Business Volume (BV), and included wellness products side by side</div>
+                <div class="text-body-tertiary small">Compare prices and included wellness products side by side</div>
             </div>
             <span class="badge bg-light text-secondary border">{{ $plans->count() }} plans available</span>
         </div>
@@ -41,7 +41,6 @@
                         <th>Included Products</th>
                         <th class="text-end">Price</th>
                         <th class="text-end">Total Payable</th>
-                        <th class="text-end">Business Volume (BV)</th>
                         <th class="text-end">Action</th>
                     </tr>
                 </thead>
@@ -67,7 +66,6 @@
                                 ₹{{ number_format($plan->totalPayable(), 0) }}
                                 <div class="text-body-tertiary fw-normal" style="font-size: .7rem;">+ ₹{{ number_format($plan->gstAmount(), 0) }} GST</div>
                             </td>
-                            <td class="text-end text-success fw-medium">₹{{ number_format($plan->bv, 0) }}</td>
                             <td class="text-end">
                                 <form method="POST" action="{{ route('member.plans.buy', $plan) }}">
                                     @csrf
@@ -105,7 +103,7 @@
                         <div class="d-flex align-items-center justify-content-between mt-auto pt-3 border-top">
                             <div>
                                 <div class="fs-3 fw-bold">₹{{ number_format($plan->totalPayable(), 0) }}</div>
-                                <div class="text-body-tertiary small">₹{{ number_format($plan->price, 0) }} + ₹{{ number_format($plan->gstAmount(), 0) }} GST · BV ₹{{ number_format($plan->bv, 0) }}</div>
+                                <div class="text-body-tertiary small">₹{{ number_format($plan->price, 0) }} + ₹{{ number_format($plan->gstAmount(), 0) }} GST</div>
                             </div>
                             <form method="POST" action="{{ route('member.plans.buy', $plan) }}">
                                 @csrf

@@ -6,7 +6,7 @@
     @include('member.partials.network-nav')
 
     <p class="text-secondary mb-3">
-        Your direct sponsored members (personally introduced by you). Every direct referral's verified purchase earns you Direct Sponsor Income (L1) and contributes BV to your binary leg.
+        Your direct sponsored members (personally introduced by you). Every direct referral's verified purchase earns you Direct Sponsor Income (L1).
     </p>
 
     {{-- Summary Strip --}}
@@ -29,17 +29,6 @@
                     <div>
                         <div class="text-secondary small">Active This Month</div>
                         <div class="fs-4 fw-bold text-success">{{ $directs->where('active_this_month', true)->count() }}</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-4">
-            <div class="card border h-100">
-                <div class="card-body py-3 d-flex align-items-center gap-3">
-                    <div class="stat-icon bg-warning-subtle text-warning-emphasis"><i class="bi bi-stack"></i></div>
-                    <div>
-                        <div class="text-secondary small">Total Direct Personal BV</div>
-                        <div class="fs-4 fw-bold text-primary">₹{{ number_format($directs->sum('personal_bv'), 0) }}</div>
                     </div>
                 </div>
             </div>
@@ -69,7 +58,6 @@
                         <th>Account Status</th>
                         <th>Monthly Activity</th>
                         <th class="text-center">Their Directs</th>
-                        <th class="text-end">Personal BV</th>
                         <th class="text-end pe-3">Joined</th>
                     </tr>
                 </thead>
@@ -104,11 +92,10 @@
                             <td class="text-center">
                                 <span class="badge bg-light text-dark border">{{ $d->sponsored_members_count ?? 0 }}</span>
                             </td>
-                            <td class="text-end fw-medium">₹{{ number_format($d->personal_bv ?? 0, 0) }}</td>
                             <td class="text-end text-body-tertiary small pe-3">{{ $d->created_at->format('d M Y') }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="text-center text-body-tertiary py-4">No direct sponsored members yet.</td></tr>
+                        <tr><td colspan="6" class="text-center text-body-tertiary py-4">No direct sponsored members yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>

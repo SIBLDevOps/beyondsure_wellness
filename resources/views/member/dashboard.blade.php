@@ -176,9 +176,9 @@
                         <div class="stat-icon bg-warning-subtle text-warning-emphasis" style="width:36px;height:36px;font-size:1rem;"><i class="bi bi-bag-check"></i></div>
                         <a href="{{ route('member.orders.index') }}" class="small link-secondary text-decoration-none">Orders &rarr;</a>
                     </div>
-                    <div class="text-secondary small">Personal BV</div>
-                    <div class="fs-5 fw-bold">₹{{ number_format($personalBv ?? 0, 0) }}</div>
-                    <div class="text-body-tertiary" style="font-size: .72rem;">{{ $orderCount }} confirmed order(s)</div>
+                    <div class="text-secondary small">My Orders</div>
+                    <div class="fs-5 fw-bold">{{ $orderCount }}</div>
+                    <div class="text-body-tertiary" style="font-size: .72rem;">confirmed order(s)</div>
                 </div>
             </div>
         </div>
@@ -204,9 +204,9 @@
                         <div class="stat-icon bg-success-subtle text-success" style="width:36px;height:36px;font-size:1rem;"><i class="bi bi-diagram-3"></i></div>
                         <a href="{{ route('member.downline.index') }}" class="small link-success text-decoration-none">Tree &rarr;</a>
                     </div>
-                    <div class="text-secondary small">Left / Right Leg BV</div>
-                    <div class="fs-6 fw-bold"><span class="text-info-emphasis">L ₹{{ number_format($leftBv, 0) }}</span> <span class="text-body-tertiary">|</span> <span class="text-success">R ₹{{ number_format($rightBv, 0) }}</span></div>
-                    <div class="text-body-tertiary" style="font-size: .72rem;">Matched ₹{{ number_format($matchedBv, 0) }} · carry-forward ₹{{ number_format($carryLeft + $carryRight, 0) }}</div>
+                    <div class="text-secondary small">My Network</div>
+                    <div class="fs-5 fw-bold">View tree</div>
+                    <div class="text-body-tertiary" style="font-size: .72rem;">Left and right team</div>
                 </div>
             </div>
         </div>
@@ -294,7 +294,7 @@
                     <div class="p-3 rounded-3 border bg-light bg-opacity-25 h-100 hover-lift">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <span class="badge bg-success-subtle text-success border border-success-subtle">Self Cashback</span>
-                            <span class="small fw-semibold text-secondary">10% BV Rebate</span>
+                            <span class="small fw-semibold text-secondary">Paid instantly</span>
                         </div>
                         <div class="fs-4 fw-bold text-success mb-1">₹{{ number_format($selfIncome, 2) }}</div>
                         <div class="text-secondary small mb-2" style="font-size: .78rem;">Direct bonus credited right back to you on every personal plan order.</div>
@@ -419,61 +419,6 @@
             </div>
         </div>
 
-        <div class="col-lg-6">
-            <div class="card border h-100">
-                <div class="card-header bg-light-subtle border-bottom py-3 d-flex align-items-center justify-content-between">
-                    <div>
-                        <h2 class="h6 mb-0 fw-semibold"><i class="bi bi-diagram-3 me-2 text-primary"></i>Binary Leg Volume &amp; Matching</h2>
-                        <div class="text-body-tertiary small">Live Left vs. Right leg BV and carry-forward balance</div>
-                    </div>
-                    <a href="{{ route('member.downline.index') }}" class="btn btn-sm btn-outline-success"><i class="bi bi-diagram-3 me-1"></i>Open Tree</a>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead class="table-light text-secondary small">
-                            <tr>
-                                <th class="ps-3">Leg / Metric</th>
-                                <th style="width: 36%;">Volume Ratio</th>
-                                <th class="text-end">Total BV</th>
-                                <th class="text-end pe-3">Carry Forward</th>
-                            </tr>
-                        </thead>
-                        <tbody class="small">
-                            <tr>
-                                <td class="ps-3 fw-medium"><span class="badge bg-info-subtle text-info-emphasis me-1">LEFT</span> Left Leg</td>
-                                <td>
-                                    <div class="progress" style="height: 6px;">
-                                        <div class="progress-bar bg-info" style="width: {{ min(100, $leftBv / $maxLegBv * 100) }}%"></div>
-                                    </div>
-                                </td>
-                                <td class="text-end fw-semibold">₹{{ number_format($leftBv, 0) }}</td>
-                                <td class="text-end pe-3 text-secondary">₹{{ number_format($carryLeft, 0) }}</td>
-                            </tr>
-                            <tr>
-                                <td class="ps-3 fw-medium"><span class="badge bg-success-subtle text-success me-1">RIGHT</span> Right Leg</td>
-                                <td>
-                                    <div class="progress" style="height: 6px;">
-                                        <div class="progress-bar bg-success" style="width: {{ min(100, $rightBv / $maxLegBv * 100) }}%"></div>
-                                    </div>
-                                </td>
-                                <td class="text-end fw-semibold">₹{{ number_format($rightBv, 0) }}</td>
-                                <td class="text-end pe-3 text-secondary">₹{{ number_format($carryRight, 0) }}</td>
-                            </tr>
-                        </tbody>
-                        <tfoot class="table-light small">
-                            <tr>
-                                <th class="ps-3 py-2" colspan="2">Total Matched Volume (1:1 Binary Pair)</th>
-                                <th class="text-end py-2 text-primary fs-6 pe-3" colspan="2">₹{{ number_format($matchedBv, 0) }}</th>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-                <div class="card-footer bg-white border-top-0 d-flex justify-content-between align-items-center small pt-2">
-                    <span class="text-body-tertiary">Unmatched BV carries forward automatically to the next cycle.</span>
-                    <a href="{{ route('member.levels.index') }}" class="link-success fw-medium text-decoration-none">Level Rates &rarr;</a>
-                </div>
-            </div>
-        </div>
     </div>
 
     {{-- Row 2: Recent Earnings & Recent Orders Tables --}}

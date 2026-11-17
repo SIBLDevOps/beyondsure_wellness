@@ -48,18 +48,6 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="card border h-100">
-                <div class="card-body py-3 d-flex align-items-center gap-3">
-                    <div class="stat-icon bg-info-subtle text-info-emphasis"><i class="bi bi-stack"></i></div>
-                    <div>
-                        <div class="text-secondary small">Personal BV Earned</div>
-                        <div class="fs-5 fw-bold text-success">₹{{ number_format($totalOrderBv, 0) }}</div>
-                        <div class="text-body-tertiary" style="font-size: .72rem;">Pool basis volume</div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <div class="card border">
@@ -83,7 +71,6 @@
                         <th class="ps-3" data-sort-key="text">Order Code</th>
                         <th data-sort-key="text">Plan Bundle</th>
                         <th data-sort-key="number" class="text-end">Amount</th>
-                        <th data-sort-key="number" class="text-end">BV</th>
                         <th>Payment</th>
                         <th class="text-center">Order Status</th>
                         <th>Placed On</th>
@@ -104,7 +91,6 @@
                             <td class="ps-3 font-monospace small fw-semibold">{{ $order->order_code }}</td>
                             <td class="fw-medium">{{ $order->plan->name }}</td>
                             <td class="text-end fw-semibold" data-sort-value="{{ $order->amount }}">₹{{ number_format($order->amount, 0) }}</td>
-                            <td class="text-end text-secondary" data-sort-value="{{ $order->bv }}">₹{{ number_format($order->bv, 0) }}</td>
                             <td class="small">
                                 @if ($order->payment)
                                     <span class="text-capitalize">{{ str_replace('_', ' ', $order->payment->method) }}</span>

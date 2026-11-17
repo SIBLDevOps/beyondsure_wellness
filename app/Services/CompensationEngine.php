@@ -97,7 +97,8 @@ class CompensationEngine
             foreach ($orders as $order) {
                 $order->update(['status' => 'settled', 'cycle_id' => $cycle->id]);
                 $poolBv += (float) $order->bv;
-                $totalPaid += $this->postSelfAndSponsor($order, $cycle);
+                $totalPaid += $this->postSelfAndSponsor($order, $cycle);          // only what was not already paid at approval
+                $totalPaid += $this->takeIntoCycle($order, $cycle);               // what was paid at approval now belongs to this cycle
                 $this->creditLegTotals($order);
             }
 
@@ -113,18 +114,83 @@ class CompensationEngine
         });
     }
 
-    private function postSelfAndSponsor(Order $order, Cycle $cycle): float
+    /**
+     * Pays the buyer's self income and the sponsor's sponsor income for an approved order, at once (no cycle needed).
+     * Safe to call again: a line that was already paid, or already recorded as lost, is never posted a second time.
+     * Matching income is not part of this; it waits for the billing cycle. Returns the amount posted now.
+     */
+    public function postOrderIncome(Order $order): float
+    {
+        $order->loadMissing('member.sponsor', 'payment');
+
+        return $this->postSelfAndSponsor($order, null);
+    }
+
+    /**
+     * After a member has just become active: sponsor income that was lost only because they were not active yet when a
+     * direct of theirs was approved is given to them, if their activation day is on or before that purchase's day
+     * (the same-day-until-23:59 rule). Only income not yet settled into a cycle is released.
+     */
+    public function releaseSponsorIncomeFor(Member $sponsor): float
+    {
+        if (! \App\Models\LockedIncome::ready()) {
+            return 0.0;
+        }
+
+        $released = 0.0;
+        $rows = \App\Models\LockedIncome::where('member_id', $sponsor->id)->where('type', 'sponsor')->whereNotNull('order_id')->whereNull('cycle_id')->get();
+
+        foreach ($rows as $row) {
+            $order = Order::withoutGlobalScopes()->with('payment', 'member')->find($row->order_id);
+
+            if (! $order || ! $this->sponsorQualifies($sponsor->fresh(), $order)) {
+                continue;
+            }
+
+            if (! LedgerEntry::where('order_id', $order->id)->where('type', 'sponsor')->exists()) {
+                LedgerEntry::create([
+                    'member_id' => $sponsor->id,
+                    'source_member_id' => $order->member_id,
+                    'order_id' => $order->id,
+                    'cycle_id' => null,
+                    'type' => 'sponsor',
+                    'amount' => $row->amount,
+                    'description' => "Sponsor income on order {$order->order_code}",
+                ]);
+                $released += (float) $row->amount;
+            }
+            $row->delete();
+        }
+
+        return $released;
+    }
+
+    /** What was paid at approval (still without a cycle) is attached to the cycle that settles the order; returns its total. */
+    private function takeIntoCycle(Order $order, Cycle $cycle): float
+    {
+        $lines = LedgerEntry::where('order_id', $order->id)->whereIn('type', ['self', 'sponsor'])->whereNull('cycle_id');
+        $sum = (float) (clone $lines)->sum('amount');
+        $lines->update(['cycle_id' => $cycle->id]);
+
+        if (\App\Models\LockedIncome::ready()) {
+            \App\Models\LockedIncome::where('order_id', $order->id)->whereNull('cycle_id')->update(['cycle_id' => $cycle->id]);
+        }
+
+        return $sum;
+    }
+
+    private function postSelfAndSponsor(Order $order, ?Cycle $cycle): float
     {
         $paid = 0.0;
         $bv = (float) $order->bv;
 
         $selfAmt = round($bv * $this->selfPct, 2);
-        if ($selfAmt > 0) {
+        if ($selfAmt > 0 && ! LedgerEntry::where('order_id', $order->id)->where('type', 'self')->exists()) {
             LedgerEntry::create([
                 'member_id' => $order->member_id,
                 'source_member_id' => $order->member_id,
                 'order_id' => $order->id,
-                'cycle_id' => $cycle->id,
+                'cycle_id' => $cycle?->id,
                 'type' => 'self',
                 'amount' => $selfAmt,
                 'description' => "Self income on order {$order->order_code}",
@@ -134,7 +200,12 @@ class CompensationEngine
 
         if ($order->member->sponsor_id && $order->member->sponsor) {
             $sponsorAmt = round($bv * $this->sponsorPct, 2);
-            if ($sponsorAmt > 0 && ! $this->sponsorQualifies($order->member->sponsor, $order)) {
+            $decided = LedgerEntry::where('order_id', $order->id)->where('type', 'sponsor')->exists()
+                || (\App\Models\LockedIncome::ready() && \App\Models\LockedIncome::where('order_id', $order->id)->where('type', 'sponsor')->exists());
+
+            if ($decided) {
+                // Already paid, or already recorded as lost, when the payment was approved: decided once.
+            } elseif ($sponsorAmt > 0 && ! $this->sponsorQualifies($order->member->sponsor, $order)) {
                 // Not paid, and not given to anyone else: the company keeps it. Recorded so it can be reported and shown.
                 $this->lockSponsorIncome($order->member->sponsor, $order, $cycle, $sponsorAmt);
             } elseif ($sponsorAmt > 0) {
@@ -142,7 +213,7 @@ class CompensationEngine
                     'member_id' => $order->member->sponsor_id,
                     'source_member_id' => $order->member_id,
                     'order_id' => $order->id,
-                    'cycle_id' => $cycle->id,
+                    'cycle_id' => $cycle?->id,
                     'type' => 'sponsor',
                     'amount' => $sponsorAmt,
                     'description' => "Sponsor income on order {$order->order_code}",
@@ -341,7 +412,7 @@ class CompensationEngine
         return \App\Support\BusinessDay::date($sponsor->activated_at) <= \App\Support\BusinessDay::date($bought);
     }
 
-    private function lockSponsorIncome(Member $sponsor, Order $order, Cycle $cycle, float $amount): void
+    private function lockSponsorIncome(Member $sponsor, Order $order, ?Cycle $cycle, float $amount): void
     {
         if (! \App\Models\LockedIncome::ready()) {
             return;
@@ -350,7 +421,7 @@ class CompensationEngine
         \App\Models\LockedIncome::create([
             'member_id' => $sponsor->id,
             'source_member_id' => $order->member_id,
-            'cycle_id' => $cycle->id,
+            'cycle_id' => $cycle?->id,
             'order_id' => $order->id,
             'type' => 'sponsor',
             'level' => 1,

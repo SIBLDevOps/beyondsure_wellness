@@ -165,6 +165,20 @@ class SettingsController extends Controller
         }
 
         Setting::setLevelPercentages($levels);
+
+        // Payments approved while the settings were incomplete paid no income at that moment: pay it now that they are complete.
+        if (\App\Support\CompensationSettings::problems() === []) {
+            try {
+                $engine = app(\App\Services\CompensationEngine::class);
+                \App\Models\Order::withoutGlobalScopes()->with('member.sponsor', 'payment')->where('status', 'paid')->orderBy('id')->get()
+                    ->each(function ($order) use ($engine) {
+                        $engine->postOrderIncome($order);
+                        $engine->releaseSponsorIncomeFor($order->member->fresh());
+                    });
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Catch-up of instant income after saving settings failed: '.get_class($e));
+            }
+        }
         // The root's rule: only when the page sent that section (an unticked box means off).
         if ($request->has('root_section')) {
             Setting::set('root_matching_enabled', $request->boolean('root_matching_enabled') ? 1 : 0);

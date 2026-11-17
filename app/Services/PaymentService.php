@@ -91,7 +91,40 @@ class PaymentService
         });
 
         $payment->refresh();
+        $this->payIncomeNow($orderId, $firstPurchase);
         $this->announcePurchase($orderId, $firstPurchase);
+    }
+
+    /**
+     * Self income and sponsor income are paid the moment a payment is approved (matching and rank wait for the billing
+     * cycle). Skipped, quietly, while the compensation settings are incomplete, and a problem here never undoes or blocks
+     * the approval: the billing cycle posts whatever was not posted now.
+     */
+    private function payIncomeNow(?int $orderId, bool $becameActive): void
+    {
+        if (! $orderId) {
+            return;
+        }
+
+        try {
+            if (\App\Support\CompensationSettings::problems() !== []) {
+                return;
+            }
+
+            $order = Order::withoutGlobalScopes()->with('member.sponsor', 'payment')->find($orderId);
+            if (! $order) {
+                return;
+            }
+
+            $engine = app(\App\Services\CompensationEngine::class);
+            $engine->postOrderIncome($order);
+
+            if ($becameActive) {
+                $engine->releaseSponsorIncomeFor($order->member->fresh());
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Income was not posted at payment approval for order '.$orderId.': '.get_class($e).'. The billing cycle will post it.');
+        }
     }
 
     /** Stored in the application's time zone (UTC): a moment given in India time is converted, not stored as it reads. */
@@ -180,6 +213,7 @@ class PaymentService
         });
 
         if ($confirmed) {
+            $this->payIncomeNow($order->id, $firstPurchase);
             $this->announcePurchase($order->id, $firstPurchase);
         }
 

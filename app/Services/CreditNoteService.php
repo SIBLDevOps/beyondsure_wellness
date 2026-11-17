@@ -33,6 +33,16 @@ class CreditNoteService
                 throw new \RuntimeException('Only a paid order can have a credit note.');
             }
 
+            // Self and sponsor income are paid when the payment is approved; a refund before the cycle takes that income back,
+            // unless the person has already drawn it out (the refund is then refused rather than leave their wallet negative).
+            $paidNow = \App\Models\LedgerEntry::where('order_id', $locked->id)->whereIn('type', ['self', 'sponsor'])->whereNull('cycle_id')->get();
+            foreach ($paidNow->groupBy('member_id') as $memberId => $lines) {
+                $m = \App\Models\Member::withoutGlobalScopes()->find($memberId);
+                if ($m && (float) $lines->sum('amount') > $m->availableBalance() + 0.001) {
+                    throw new \RuntimeException('Income from this order has already been withdrawn or reserved by a member, so it cannot be reversed here.');
+                }
+            }
+
             app(InvoiceService::class)->issue($locked);   // an invoice is needed to reverse
             $date = now()->startOfDay();
             $fy = InvoiceService::financialYear($date);
@@ -56,6 +66,10 @@ class CreditNoteService
             ]);
 
             $locked->update(['status' => 'cancelled']);
+            \App\Models\LedgerEntry::where('order_id', $locked->id)->whereIn('type', ['self', 'sponsor'])->whereNull('cycle_id')->delete();
+            if (\App\Models\LockedIncome::ready()) {
+                \App\Models\LockedIncome::where('order_id', $locked->id)->whereNull('cycle_id')->delete();
+            }
 
             // Without any other paid purchase the buyer is no longer an active member.
             $member = $locked->member()->withoutGlobalScopes()->first();
